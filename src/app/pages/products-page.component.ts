@@ -41,9 +41,9 @@ type ProductTab = 'all' | 'low' | 'out';
                 <a class="card list-card" [routerLink]="['/products', product.id]">
                   <div>
                     <h3>{{ product.name }}</h3>
-                    <p>Stock: {{ product.stock }} · {{ product.salePrice.toFixed(2) }} EUR</p>
+                    <p>Stock: {{ product.stock }} | {{ product.salePrice.toFixed(2) }} EUR</p>
                   </div>
-                  <span class="link-arrow">›</span>
+                  <span class="link-arrow">&gt;</span>
                 </a>
               }
             </div>

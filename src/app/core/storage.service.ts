@@ -33,6 +33,28 @@ export class StorageService {
     }));
   }
 
+  getProductById(productId: string): Product | null {
+    return this.getProducts().find((product) => product.id === productId) ?? null;
+  }
+
+  saveProduct(product: Product): void {
+    const products = this.getProducts();
+    const index = products.findIndex((item) => item.id === product.id);
+
+    if (index >= 0) {
+      products[index] = product;
+    } else {
+      products.push(product);
+    }
+
+    localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products));
+  }
+
+  deleteProduct(productId: string): void {
+    const products = this.getProducts().filter((product) => product.id !== productId);
+    localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products));
+  }
+
   getSales(): Sale[] {
     const raw = localStorage.getItem(STORAGE_KEYS.sales);
     const sales = raw ? JSON.parse(raw) : mockSales;

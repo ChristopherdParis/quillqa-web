@@ -87,6 +87,18 @@ button, input, select {
   gap: 16px;
 }
 
+.editor-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.editor-header h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
 .page-header-lg h1 {
   font-size: 2.4rem;
 }
@@ -234,6 +246,16 @@ button, input, select {
   margin-bottom: 16px;
 }
 
+.form-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.form-actions {
+  display: grid;
+  gap: 12px;
+}
+
 .tabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -296,6 +318,12 @@ button, input, select {
 .btn-ghost {
   background: transparent;
   padding: 8px 10px;
+}
+
+.btn-icon {
+  width: 40px;
+  height: 40px;
+  padding: 0;
 }
 
 .btn-danger {
@@ -489,6 +517,10 @@ button, input, select {
 
   .page {
     padding: 32px;
+  }
+
+  .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .metric-grid {

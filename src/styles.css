@@ -40,6 +40,10 @@ button, input, select {
   font: inherit;
 }
 
+textarea {
+  font: inherit;
+}
+
 .app-shell {
   min-height: 100vh;
 }
@@ -321,6 +325,16 @@ button, input, select {
   background: #fff;
 }
 
+.sale-comment-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--foreground);
+  resize: vertical;
+}
+
 .cart-item-card,
 .sale-total-card {
   display: grid;
@@ -357,6 +371,12 @@ button, input, select {
 .sale-alert-danger {
   border-left: 4px solid #fca5a5;
   background: #fef2f2;
+}
+
+.sale-comment-copy {
+  margin: 0;
+  color: var(--foreground);
+  white-space: pre-wrap;
 }
 
 .text-danger {

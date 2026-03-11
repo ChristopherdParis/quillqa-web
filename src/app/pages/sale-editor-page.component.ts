@@ -92,6 +92,18 @@ import { StorageService } from '../core/storage.service';
               </div>
             }
 
+            <article class="card">
+              <label class="field">
+                <span>Comentario de la venta</span>
+                <textarea
+                  [(ngModel)]="comment"
+                  class="sale-comment-input"
+                  rows="4"
+                  placeholder="Agrega una nota opcional para esta venta"
+                ></textarea>
+              </label>
+            </article>
+
             <div class="card sale-total-card">
               <p>Total a pagar</p>
               <strong>{{ total.toFixed(2) }} EUR</strong>
@@ -116,6 +128,7 @@ export class SaleEditorPageComponent implements OnInit {
   products: Product[] = [];
   cartItems: SaleItem[] = [];
   searchTerm = '';
+  comment = '';
   selectedQty: Record<string, number> = {};
 
   ngOnInit(): void {
@@ -218,6 +231,7 @@ export class SaleEditorPageComponent implements OnInit {
         estimatedProfit,
         timestamp: new Date(),
         canceled: false,
+        comment: this.comment.trim() || undefined,
       };
 
       this.storage.saveSale(sale);

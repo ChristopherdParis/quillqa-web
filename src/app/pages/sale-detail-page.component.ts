@@ -60,6 +60,13 @@ import { StorageService } from '../core/storage.service';
             </div>
           </article>
 
+          @if (sale.comment) {
+            <article class="card">
+              <h2 class="section-title">Comentario</h2>
+              <p class="sale-comment-copy">{{ sale.comment }}</p>
+            </article>
+          }
+
           <article class="card">
             <div class="stack-sm sale-items-list">
               @for (item of sale.items; track item.productId + '-' + item.productName) {

@@ -38,6 +38,9 @@ import { StorageService } from '../core/storage.service';
                         }
                       </h3>
                       <p>{{ formatTime(sale.timestamp) }}</p>
+                      @if (sale.comment) {
+                        <p>{{ sale.comment }}</p>
+                      }
                       @if (sale.canceled && sale.cancellationReason) {
                         <p>Motivo: {{ sale.cancellationReason }}</p>
                       }

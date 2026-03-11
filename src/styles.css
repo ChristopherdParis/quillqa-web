@@ -256,6 +256,113 @@ button, input, select {
   gap: 12px;
 }
 
+.sales-layout {
+  display: grid;
+  gap: 24px;
+}
+
+.sales-main,
+.sales-sidebar {
+  min-width: 0;
+}
+
+.search-results {
+  display: grid;
+  gap: 10px;
+  max-height: 540px;
+  overflow: auto;
+}
+
+.product-search-card,
+.cart-item-head,
+.cart-item-foot,
+.sale-line-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.product-search-copy,
+.sale-line-item > div {
+  min-width: 0;
+}
+
+.product-search-copy h3,
+.cart-item-card h3,
+.sale-line-item h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.product-search-copy p,
+.cart-item-card p,
+.sale-line-item p,
+.sale-summary-grid p,
+.sale-total-card p,
+.sale-alert-danger p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.product-search-actions,
+.qty-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qty-input {
+  width: 62px;
+  padding: 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-align: center;
+  background: #fff;
+}
+
+.cart-item-card,
+.sale-total-card {
+  display: grid;
+  gap: 14px;
+}
+
+.qty-stepper span {
+  min-width: 24px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.sale-total-card strong {
+  font-size: 2rem;
+}
+
+.sale-summary-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sale-items-list {
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sale-totals {
+  display: grid;
+  gap: 10px;
+}
+
+.sale-alert-danger {
+  border-left: 4px solid #fca5a5;
+  background: #fef2f2;
+}
+
+.text-danger {
+  color: var(--danger);
+}
+
 .tabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -537,6 +644,20 @@ button, input, select {
 
   .quick-actions-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sales-layout {
+    grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+  }
+
+  .sales-sidebar {
+    position: sticky;
+    top: 32px;
+    align-self: start;
+  }
+
+  .sale-summary-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .mobile-only {

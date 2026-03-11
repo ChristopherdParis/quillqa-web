@@ -64,6 +64,36 @@ export class StorageService {
     }));
   }
 
+  getSaleById(saleId: string): Sale | null {
+    return this.getSales().find((sale) => sale.id === saleId) ?? null;
+  }
+
+  saveSale(sale: Sale): void {
+    const sales = this.getSales();
+    const index = sales.findIndex((item) => item.id === sale.id);
+
+    if (index >= 0) {
+      sales[index] = sale;
+    } else {
+      sales.push(sale);
+    }
+
+    localStorage.setItem(STORAGE_KEYS.sales, JSON.stringify(sales));
+  }
+
+  generateSaleId(): string {
+    const sales = this.getSales();
+    const maxNum = Math.max(
+      0,
+      ...sales.map((sale) => {
+        const match = sale.id.match(/\d+/);
+        return match ? Number.parseInt(match[0], 10) : 0;
+      }),
+    );
+
+    return `V${String(maxNum + 1).padStart(3, '0')}`;
+  }
+
   getBusinessSettings(): BusinessSettings {
     const raw = localStorage.getItem(STORAGE_KEYS.settings);
     return raw ? JSON.parse(raw) : mockBusinessSettings;

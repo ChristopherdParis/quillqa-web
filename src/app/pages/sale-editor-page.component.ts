@@ -104,10 +104,50 @@ import { StorageService } from '../core/storage.service';
               </label>
             </article>
 
+            <article class="card">
+              <div class="form-stack">
+                <label class="field">
+                  <span>Metodo de pago</span>
+                  <select [(ngModel)]="paymentMethod" name="paymentMethod">
+                    @for (method of paymentMethods; track method.value) {
+                      <option [value]="method.value">{{ method.label }}</option>
+                    }
+                  </select>
+                </label>
+
+                @if (paymentMethod === 'cash') {
+                  <label class="field">
+                    <span>Monto recibido</span>
+                    <input
+                      [(ngModel)]="amountPaid"
+                      name="amountPaid"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                    />
+                  </label>
+
+                  <div class="sale-payment-summary">
+                    <div>
+                      <p>Total</p>
+                      <strong>{{ total.toFixed(2) }} EUR</strong>
+                    </div>
+                    <div>
+                      <p>Vuelto</p>
+                      <strong [class.text-danger]="changeDue < 0" [class.text-primary]="changeDue >= 0">
+                        {{ changeDue >= 0 ? changeDue.toFixed(2) + ' EUR' : 'Falta ' + missingAmount.toFixed(2) + ' EUR' }}
+                      </strong>
+                    </div>
+                  </div>
+                }
+              </div>
+            </article>
+
             <div class="card sale-total-card">
               <p>Total a pagar</p>
               <strong>{{ total.toFixed(2) }} EUR</strong>
-              <button class="btn btn-primary btn-block" type="button" (click)="completeSale()" [disabled]="!cartItems.length || saving()">
+              <button class="btn btn-primary btn-block" type="button" (click)="completeSale()" [disabled]="!cartItems.length || saving() || !canSubmitSale()">
                 {{ saving() ? 'Registrando...' : 'Registrar Venta' }}
               </button>
             </div>
@@ -129,7 +169,15 @@ export class SaleEditorPageComponent implements OnInit {
   cartItems: SaleItem[] = [];
   searchTerm = '';
   comment = '';
+  paymentMethod = 'cash';
+  amountPaid: number | null = null;
   selectedQty: Record<string, number> = {};
+  readonly paymentMethods = [
+    { value: 'cash', label: 'Efectivo' },
+    { value: 'card', label: 'Tarjeta' },
+    { value: 'transfer', label: 'Transferencia' },
+    { value: 'wallet', label: 'Billetera digital' },
+  ];
 
   ngOnInit(): void {
     setTimeout(() => {
@@ -151,8 +199,28 @@ export class SaleEditorPageComponent implements OnInit {
     return this.cartItems.reduce((sum, item) => sum + item.subtotal, 0);
   }
 
+  get normalizedAmountPaid(): number {
+    return Number(this.amountPaid) || 0;
+  }
+
+  get changeDue(): number {
+    return this.normalizedAmountPaid - this.total;
+  }
+
+  get missingAmount(): number {
+    return Math.max(0, this.total - this.normalizedAmountPaid);
+  }
+
   getSelectedQty(productId: string): number {
     return this.selectedQty[productId] || 1;
+  }
+
+  canSubmitSale(): boolean {
+    if (this.paymentMethod !== 'cash') {
+      return true;
+    }
+
+    return this.normalizedAmountPaid >= this.total;
   }
 
   setSelectedQty(productId: string, rawValue: number | string, maxStock: number): void {
@@ -231,6 +299,9 @@ export class SaleEditorPageComponent implements OnInit {
         estimatedProfit,
         timestamp: new Date(),
         canceled: false,
+        paymentMethod: this.paymentMethod,
+        amountPaid: this.paymentMethod === 'cash' ? this.normalizedAmountPaid : undefined,
+        changeDue: this.paymentMethod === 'cash' ? this.changeDue : undefined,
         comment: this.comment.trim() || undefined,
       };
 

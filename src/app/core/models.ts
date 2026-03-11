@@ -26,6 +26,9 @@ export interface Sale {
   estimatedProfit: number;
   timestamp: Date;
   canceled: boolean;
+  paymentMethod?: string;
+  amountPaid?: number;
+  changeDue?: number;
   comment?: string;
   cancellationReason?: string;
 }

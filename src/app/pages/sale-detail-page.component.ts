@@ -57,6 +57,10 @@ import { StorageService } from '../core/storage.service';
                 <p>Total</p>
                 <strong>{{ sale.total.toFixed(2) }} EUR</strong>
               </div>
+              <div>
+                <p>Pago</p>
+                <strong>{{ formatPaymentMethod(sale.paymentMethod) }}</strong>
+              </div>
             </div>
           </article>
 
@@ -64,6 +68,22 @@ import { StorageService } from '../core/storage.service';
             <article class="card">
               <h2 class="section-title">Comentario</h2>
               <p class="sale-comment-copy">{{ sale.comment }}</p>
+            </article>
+          }
+
+          @if (sale.paymentMethod === 'cash') {
+            <article class="card">
+              <h2 class="section-title">Pago en efectivo</h2>
+              <div class="sale-totals">
+                <div>
+                  <p>Monto recibido</p>
+                  <strong>{{ (sale.amountPaid ?? 0).toFixed(2) }} EUR</strong>
+                </div>
+                <div>
+                  <p>Vuelto</p>
+                  <strong class="text-primary">{{ (sale.changeDue ?? 0).toFixed(2) }} EUR</strong>
+                </div>
+              </div>
             </article>
           }
 
@@ -189,5 +209,20 @@ export class SaleDetailPageComponent implements OnInit {
 
   goBack(): void {
     this.location.back();
+  }
+
+  formatPaymentMethod(method?: string): string {
+    switch (method) {
+      case 'cash':
+        return 'Efectivo';
+      case 'card':
+        return 'Tarjeta';
+      case 'transfer':
+        return 'Transferencia';
+      case 'wallet':
+        return 'Billetera digital';
+      default:
+        return 'No definido';
+    }
   }
 }

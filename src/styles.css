@@ -265,8 +265,15 @@ textarea {
   gap: 24px;
 }
 
+.confirm-layout {
+  display: grid;
+  gap: 24px;
+}
+
 .sales-main,
-.sales-sidebar {
+.sales-sidebar,
+.confirm-main,
+.confirm-sidebar {
   min-width: 0;
 }
 
@@ -359,6 +366,33 @@ textarea {
 
 .sale-payment-summary p {
   margin: 0 0 4px;
+  color: var(--muted);
+}
+
+.sale-preview-card,
+.sale-preview-grid,
+.sale-preview-note {
+  display: grid;
+  gap: 12px;
+}
+
+.sale-preview-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sale-preview-grid p,
+.sale-preview-note p {
+  margin: 0 0 4px;
+  color: var(--muted);
+}
+
+.sale-preview-note {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.sale-final-copy {
+  margin: 0;
   color: var(--muted);
 }
 
@@ -686,7 +720,17 @@ textarea {
     grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
   }
 
+  .confirm-layout {
+    grid-template-columns: minmax(0, 1.4fr) minmax(340px, 0.9fr);
+  }
+
   .sales-sidebar {
+    position: sticky;
+    top: 32px;
+    align-self: start;
+  }
+
+  .confirm-sidebar {
     position: sticky;
     top: 32px;
     align-self: start;

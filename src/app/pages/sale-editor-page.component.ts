@@ -5,6 +5,8 @@ import { Router } from '@angular/router';
 import { Product, Sale, SaleItem } from '../core/models';
 import { StorageService } from '../core/storage.service';
 
+type SaleStep = 'cart' | 'confirm';
+
 @Component({
   selector: 'app-sale-editor-page',
   standalone: true,
@@ -12,18 +14,18 @@ import { StorageService } from '../core/storage.service';
   template: `
     <section class="page">
       <div class="editor-header mobile-only">
-        <button class="btn btn-ghost btn-icon" type="button" (click)="goBack()">&lt;</button>
-        <h1>Nueva Venta</h1>
+        <button class="btn btn-ghost btn-icon" type="button" (click)="handleBack()">&lt;</button>
+        <h1>{{ currentStep() === 'cart' ? 'Nueva Venta' : 'Confirmar Venta' }}</h1>
       </div>
 
       <div class="page-header desktop-only">
-        <h1>Nueva Venta</h1>
-        <p>Registro de transaccion</p>
+        <h1>{{ currentStep() === 'cart' ? 'Nueva Venta' : 'Confirmar Venta' }}</h1>
+        <p>{{ currentStep() === 'cart' ? 'Seleccion de productos' : 'Revision final y metodo de pago' }}</p>
       </div>
 
       @if (loading()) {
         <p class="loading-copy">Cargando...</p>
-      } @else {
+      } @else if (currentStep() === 'cart') {
         <div class="sales-layout">
           <section class="sales-main">
             <h2 class="section-title">Buscar Productos</h2>
@@ -76,7 +78,7 @@ import { StorageService } from '../core/storage.service';
                         <h3>{{ item.productName }}</h3>
                         <p>{{ item.unitPrice.toFixed(2) }} EUR c/u</p>
                       </div>
-                      <button class="btn btn-ghost btn-icon text-danger" type="button" (click)="removeItem(item.productId)">×</button>
+                      <button class="btn btn-ghost btn-icon text-danger" type="button" (click)="removeItem(item.productId)">x</button>
                     </div>
 
                     <div class="cart-item-foot">
@@ -92,18 +94,35 @@ import { StorageService } from '../core/storage.service';
               </div>
             }
 
+            <div class="card sale-total-card">
+              <p>Total actual</p>
+              <strong>{{ total.toFixed(2) }} EUR</strong>
+              <button class="btn btn-primary btn-block" type="button" (click)="goToConfirm()" [disabled]="!cartItems.length">
+                Continuar a Confirmacion
+              </button>
+            </div>
+          </aside>
+        </div>
+      } @else {
+        <div class="confirm-layout">
+          <section class="confirm-main stack-md">
             <article class="card">
-              <label class="field">
-                <span>Comentario de la venta</span>
-                <textarea
-                  [(ngModel)]="comment"
-                  class="sale-comment-input"
-                  rows="4"
-                  placeholder="Agrega una nota opcional para esta venta"
-                ></textarea>
-              </label>
+              <h2 class="section-title">Detalle Seleccionado</h2>
+              <div class="stack-sm">
+                @for (item of cartItems; track item.productId) {
+                  <div class="sale-line-item">
+                    <div>
+                      <h3>{{ item.productName }}</h3>
+                      <p>{{ item.quantity }} x {{ item.unitPrice.toFixed(2) }} EUR</p>
+                    </div>
+                    <strong>{{ item.subtotal.toFixed(2) }} EUR</strong>
+                  </div>
+                }
+              </div>
             </article>
+          </section>
 
+          <aside class="confirm-sidebar stack-md">
             <article class="card">
               <div class="form-stack">
                 <label class="field">
@@ -118,14 +137,7 @@ import { StorageService } from '../core/storage.service';
                 @if (paymentMethod === 'cash') {
                   <label class="field">
                     <span>Monto recibido</span>
-                    <input
-                      [(ngModel)]="amountPaid"
-                      name="amountPaid"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0.00"
-                    />
+                    <input [(ngModel)]="amountPaid" name="amountPaid" type="number" min="0" step="0.01" placeholder="0.00" />
                   </label>
 
                   <div class="sale-payment-summary">
@@ -144,12 +156,29 @@ import { StorageService } from '../core/storage.service';
               </div>
             </article>
 
+            <article class="card">
+              <label class="field">
+                <span>Comentario de la venta</span>
+                <textarea
+                  [(ngModel)]="comment"
+                  class="sale-comment-input"
+                  rows="4"
+                  placeholder="Agrega una nota opcional para esta venta"
+                ></textarea>
+              </label>
+            </article>
+
             <div class="card sale-total-card">
               <p>Total a pagar</p>
               <strong>{{ total.toFixed(2) }} EUR</strong>
-              <button class="btn btn-primary btn-block" type="button" (click)="completeSale()" [disabled]="!cartItems.length || saving() || !canSubmitSale()">
-                {{ saving() ? 'Registrando...' : 'Registrar Venta' }}
+              <p class="sale-final-copy">Metodo de pago: {{ paymentMethodLabel }}</p>
+              @if (paymentMethod === 'cash') {
+                <p class="sale-final-copy">Pago recibido: {{ normalizedAmountPaid.toFixed(2) }} EUR</p>
+              }
+              <button class="btn btn-primary btn-block" type="button" (click)="completeSale()" [disabled]="saving() || !canSubmitSale()">
+                {{ saving() ? 'Registrando...' : 'Confirmar y Registrar Venta' }}
               </button>
+              <button class="btn btn-outline btn-block" type="button" (click)="currentStep.set('cart')">Volver al Carrito</button>
             </div>
           </aside>
         </div>
@@ -164,6 +193,7 @@ export class SaleEditorPageComponent implements OnInit {
 
   readonly loading = signal(true);
   readonly saving = signal(false);
+  readonly currentStep = signal<SaleStep>('cart');
 
   products: Product[] = [];
   cartItems: SaleItem[] = [];
@@ -199,6 +229,13 @@ export class SaleEditorPageComponent implements OnInit {
     return this.cartItems.reduce((sum, item) => sum + item.subtotal, 0);
   }
 
+  get estimatedProfit(): number {
+    return this.cartItems.reduce((sum, item) => {
+      const product = this.products.find((current) => current.id === item.productId);
+      return product ? sum + item.quantity * (item.unitPrice - product.costPrice) : sum;
+    }, 0);
+  }
+
   get normalizedAmountPaid(): number {
     return Number(this.amountPaid) || 0;
   }
@@ -211,16 +248,12 @@ export class SaleEditorPageComponent implements OnInit {
     return Math.max(0, this.total - this.normalizedAmountPaid);
   }
 
-  getSelectedQty(productId: string): number {
-    return this.selectedQty[productId] || 1;
+  get paymentMethodLabel(): string {
+    return this.paymentMethods.find((method) => method.value === this.paymentMethod)?.label || 'No definido';
   }
 
-  canSubmitSale(): boolean {
-    if (this.paymentMethod !== 'cash') {
-      return true;
-    }
-
-    return this.normalizedAmountPaid >= this.total;
+  getSelectedQty(productId: string): number {
+    return this.selectedQty[productId] || 1;
   }
 
   setSelectedQty(productId: string, rawValue: number | string, maxStock: number): void {
@@ -279,6 +312,22 @@ export class SaleEditorPageComponent implements OnInit {
     this.cartItems = this.cartItems.filter((item) => item.productId !== productId);
   }
 
+  goToConfirm(): void {
+    if (!this.cartItems.length) {
+      return;
+    }
+
+    this.currentStep.set('confirm');
+  }
+
+  canSubmitSale(): boolean {
+    if (this.paymentMethod !== 'cash') {
+      return true;
+    }
+
+    return this.normalizedAmountPaid >= this.total;
+  }
+
   async completeSale(): Promise<void> {
     if (!this.cartItems.length) {
       return;
@@ -287,16 +336,11 @@ export class SaleEditorPageComponent implements OnInit {
     this.saving.set(true);
 
     try {
-      const estimatedProfit = this.cartItems.reduce((sum, item) => {
-        const product = this.products.find((current) => current.id === item.productId);
-        return product ? sum + item.quantity * (item.unitPrice - product.costPrice) : sum;
-      }, 0);
-
       const sale: Sale = {
         id: this.storage.generateSaleId(),
         items: this.cartItems,
         total: this.total,
-        estimatedProfit,
+        estimatedProfit: this.estimatedProfit,
         timestamp: new Date(),
         canceled: false,
         paymentMethod: this.paymentMethod,
@@ -326,7 +370,12 @@ export class SaleEditorPageComponent implements OnInit {
     }
   }
 
-  goBack(): void {
+  handleBack(): void {
+    if (this.currentStep() === 'confirm') {
+      this.currentStep.set('cart');
+      return;
+    }
+
     this.location.back();
   }
 }

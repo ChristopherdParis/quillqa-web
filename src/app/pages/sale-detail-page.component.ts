@@ -1,5 +1,6 @@
 import { CommonModule, Location } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Sale } from '../core/models';
 import { StorageService } from '../core/storage.service';
@@ -7,7 +8,7 @@ import { StorageService } from '../core/storage.service';
 @Component({
   selector: 'app-sale-detail-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <section class="page page-narrow">
       <div class="editor-header mobile-only">
@@ -32,6 +33,9 @@ import { StorageService } from '../core/storage.service';
             <div class="card sale-alert-danger">
               <strong>Venta anulada</strong>
               <p>Esta venta ha sido cancelada</p>
+              @if (sale.cancellationReason) {
+                <p>Motivo: {{ sale.cancellationReason }}</p>
+              }
             </div>
           }
 
@@ -82,7 +86,36 @@ import { StorageService } from '../core/storage.service';
           </article>
 
           @if (!sale.canceled) {
-            <button class="btn btn-danger btn-block" type="button" (click)="cancelSale()">Anular Venta</button>
+            @if (!showCancelForm()) {
+              <button class="btn btn-danger btn-block" type="button" (click)="showCancelForm.set(true)">Anular Venta</button>
+            } @else {
+              <article class="card stack-sm">
+                <h2 class="section-title">Motivo de anulacion</h2>
+
+                <label class="field">
+                  <span>Selecciona un motivo</span>
+                  <select [(ngModel)]="selectedReason">
+                    @for (reason of cancellationReasons; track reason) {
+                      <option [value]="reason">{{ reason }}</option>
+                    }
+                  </select>
+                </label>
+
+                @if (selectedReason === 'Otro') {
+                  <label class="field">
+                    <span>Escribe el motivo</span>
+                    <input [(ngModel)]="customReason" type="text" placeholder="Detalle de la anulacion" />
+                  </label>
+                }
+
+                <div class="form-actions">
+                  <button class="btn btn-danger btn-block" type="button" [disabled]="!canCancelSale()" (click)="cancelSale()">
+                    Confirmar Anulacion
+                  </button>
+                  <button class="btn btn-outline btn-block" type="button" (click)="resetCancelForm()">Cancelar</button>
+                </div>
+              </article>
+            }
           }
         </div>
       }
@@ -95,8 +128,12 @@ export class SaleDetailPageComponent implements OnInit {
   private readonly storage = inject(StorageService);
 
   readonly loading = signal(true);
+  readonly showCancelForm = signal(false);
   sale: Sale | null = null;
   longDate = '';
+  selectedReason = 'Error de cobro';
+  customReason = '';
+  readonly cancellationReasons = ['Error de cobro', 'Producto equivocado', 'Pedido cancelado por cliente', 'Error de inventario', 'Otro'];
 
   ngOnInit(): void {
     const saleId = this.route.snapshot.paramMap.get('id');
@@ -118,18 +155,29 @@ export class SaleDetailPageComponent implements OnInit {
     }, 300);
   }
 
+  canCancelSale(): boolean {
+    return this.selectedReason !== 'Otro' || !!this.customReason.trim();
+  }
+
   cancelSale(): void {
     if (!this.sale) {
       return;
     }
 
-    const shouldCancel = window.confirm('Anular esta venta? Esta accion no se puede deshacer.');
-    if (!shouldCancel) {
+    if (!this.canCancelSale()) {
       return;
     }
 
-    this.sale = { ...this.sale, canceled: true };
+    const reason = this.selectedReason === 'Otro' ? this.customReason.trim() : this.selectedReason;
+    this.sale = { ...this.sale, canceled: true, cancellationReason: reason };
     this.storage.saveSale(this.sale);
+    this.showCancelForm.set(false);
+  }
+
+  resetCancelForm(): void {
+    this.selectedReason = 'Error de cobro';
+    this.customReason = '';
+    this.showCancelForm.set(false);
   }
 
   goBack(): void {

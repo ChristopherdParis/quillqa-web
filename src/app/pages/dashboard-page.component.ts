@@ -40,6 +40,26 @@ import { StorageService } from '../core/storage.service';
               </article>
             </div>
 
+            @if (recentSales.length) {
+              <div class="section-block">
+                <h2 class="section-title">Ultimas Ventas del Dia</h2>
+                <div class="stack-sm">
+                  @for (sale of recentSales; track sale.id) {
+                    <a class="card list-card" [routerLink]="['/sales', sale.id]">
+                      <div>
+                        <h3>Venta #{{ sale.id }}</h3>
+                        <p>{{ formatTime(sale.timestamp) }} | {{ sale.items.length }} articulos</p>
+                      </div>
+                      <div class="list-card-meta">
+                        <strong>{{ formatCurrency(sale.total) }}</strong>
+                        <span class="text-primary">+{{ formatCurrency(sale.estimatedProfit) }}</span>
+                      </div>
+                    </a>
+                  }
+                </div>
+              </div>
+            }
+
             @if (alerts.length) {
               <div class="section-block">
                 <h2 class="section-title">Alertas de Stock</h2>
@@ -78,6 +98,7 @@ export class DashboardPageComponent implements OnInit {
   products: Product[] = [];
   sales: Sale[] = [];
   alerts: Product[] = [];
+  recentSales: Sale[] = [];
   totalSales = 0;
   totalRevenue = 0;
   totalProfit = 0;
@@ -92,6 +113,9 @@ export class DashboardPageComponent implements OnInit {
     setTimeout(() => {
       this.products = this.storage.getProducts();
       this.sales = this.storage.getSales().filter((sale) => !sale.canceled);
+      this.recentSales = [...this.sales]
+        .sort((left, right) => right.timestamp.getTime() - left.timestamp.getTime())
+        .slice(0, 5);
       this.alerts = this.products.filter((product) => product.stock <= product.minStock).sort((a, b) => a.stock - b.stock);
       this.totalSales = this.sales.length;
       this.totalRevenue = this.sales.reduce((sum, sale) => sum + sale.total, 0);
@@ -102,5 +126,9 @@ export class DashboardPageComponent implements OnInit {
 
   formatCurrency(value: number): string {
     return `${value.toFixed(2)} EUR`;
+  }
+
+  formatTime(date: Date): string {
+    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   }
 }

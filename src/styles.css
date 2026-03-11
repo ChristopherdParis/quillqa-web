@@ -459,6 +459,11 @@ button, input, select {
   color: var(--danger);
 }
 
+.sale-status-pill {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
 .text-primary {
   color: var(--primary);
 }

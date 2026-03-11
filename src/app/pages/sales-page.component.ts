@@ -31,8 +31,16 @@ import { StorageService } from '../core/storage.service';
                 @for (sale of group.sales; track sale.id) {
                   <a class="card list-card" [routerLink]="['/sales', sale.id]">
                     <div>
-                      <h3>{{ sale.items.length }} articulos</h3>
+                      <h3>
+                        {{ sale.items.length }} articulos
+                        @if (sale.canceled) {
+                          <span class="pill pill-danger sale-status-pill">Anulado</span>
+                        }
+                      </h3>
                       <p>{{ formatTime(sale.timestamp) }}</p>
+                      @if (sale.canceled && sale.cancellationReason) {
+                        <p>Motivo: {{ sale.cancellationReason }}</p>
+                      }
                     </div>
                     <div class="list-card-meta">
                       <strong>{{ sale.total.toFixed(2) }} EUR</strong>
@@ -64,7 +72,12 @@ import { StorageService } from '../core/storage.service';
                 @for (sale of group.sales; track sale.id) {
                   <tr>
                     <td>{{ formatTime(sale.timestamp) }}</td>
-                    <td>{{ sale.items.length }} articulos</td>
+                    <td>
+                      {{ sale.items.length }} articulos
+                      @if (sale.canceled) {
+                        <span class="pill pill-danger sale-status-pill">Anulado</span>
+                      }
+                    </td>
                     <td>{{ sale.total.toFixed(2) }} EUR</td>
                     <td class="text-primary">+{{ sale.estimatedProfit.toFixed(2) }} EUR</td>
                     <td class="text-right">
@@ -88,7 +101,7 @@ export class SalesPageComponent implements OnInit {
 
   ngOnInit(): void {
     setTimeout(() => {
-      this.sales = this.storage.getSales().filter((sale) => !sale.canceled);
+      this.sales = this.storage.getSales();
       this.loading.set(false);
     }, 300);
   }

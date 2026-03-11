@@ -26,6 +26,7 @@ export interface Sale {
   estimatedProfit: number;
   timestamp: Date;
   canceled: boolean;
+  cancellationReason?: string;
 }
 
 export interface BusinessSettings {

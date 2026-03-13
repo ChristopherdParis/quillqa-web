@@ -27,9 +27,10 @@ import { StorageService } from '../core/storage.service';
           <p class="caption">{{ formattedDate }}</p>
           <div class="report-grid">
             <article class="card stat-card"><p>Ventas</p><strong>{{ filteredSales.length }}</strong></article>
-            <article class="card stat-card"><p>Articulos</p><strong>{{ totalItems }}</strong></article>
+            <article class="card stat-card"><p>Unidades vendidas</p><strong>{{ totalItems }}</strong></article>
             <article class="card stat-card"><p>Ingresos</p><strong>{{ totalRevenue.toFixed(2) }} EUR</strong></article>
             <article class="card stat-card"><p>Ganancia</p><strong class="text-primary">+{{ totalProfit.toFixed(2) }} EUR</strong></article>
+            <article class="card stat-card"><p>Ticket promedio</p><strong>{{ averageTicket.toFixed(2) }} EUR</strong></article>
           </div>
 
           @if (topProducts.length) {
@@ -87,18 +88,25 @@ export class ReportsPageComponent implements OnInit {
 
   ngOnInit(): void {
     setTimeout(() => {
-      this.sales = this.storage.getSales().filter((sale) => !sale.canceled);
+      this.sales = this.storage.getSales();
       this.loading.set(false);
     }, 300);
   }
 
   get filteredSales(): Sale[] {
-    const [year, month, day] = this.selectedDate.split('-').map(Number);
-    return this.sales.filter((sale) => sale.timestamp.getFullYear() === year && sale.timestamp.getMonth() === month - 1 && sale.timestamp.getDate() === day);
+    if (!this.selectedDateTime) {
+      return [];
+    }
+
+    return this.sales.filter(
+      (sale) =>
+        !sale.canceled &&
+        this.isSameDay(sale.timestamp, this.selectedDateTime),
+    );
   }
 
   get totalItems(): number {
-    return this.filteredSales.reduce((sum, sale) => sum + sale.items.length, 0);
+    return this.filteredSales.reduce((sum, sale) => sum + sale.items.reduce((subtotal, item) => subtotal + item.quantity, 0), 0);
   }
 
   get totalRevenue(): number {
@@ -107,6 +115,10 @@ export class ReportsPageComponent implements OnInit {
 
   get totalProfit(): number {
     return this.filteredSales.reduce((sum, sale) => sum + sale.estimatedProfit, 0);
+  }
+
+  get averageTicket(): number {
+    return this.filteredSales.length ? this.totalRevenue / this.filteredSales.length : 0;
   }
 
   get topProducts(): Array<{ name: string; quantity: number; total: number }> {
@@ -123,6 +135,19 @@ export class ReportsPageComponent implements OnInit {
   }
 
   get formattedDate(): string {
-    return new Intl.DateTimeFormat('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(this.selectedDate));
+    if (!this.selectedDateTime) {
+      return 'Sin fecha válida';
+    }
+
+    return new Intl.DateTimeFormat('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(this.selectedDateTime);
+  }
+
+  private get selectedDateTime(): Date | null {
+    const parsed = new Date(`${this.selectedDate}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  private isSameDay(left: Date, right: Date): boolean {
+    return left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth() && left.getDate() === right.getDate();
   }
 }

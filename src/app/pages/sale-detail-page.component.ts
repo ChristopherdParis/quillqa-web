@@ -195,7 +195,12 @@ export class SaleDetailPageComponent implements OnInit {
       return;
     }
 
+    if (this.sale.canceled) {
+      return;
+    }
+
     const reason = this.selectedReason === 'Otro' ? this.customReason.trim() : this.selectedReason;
+    this.storage.restoreStockForSale(this.sale);
     this.sale = { ...this.sale, canceled: true, cancellationReason: reason };
     this.storage.saveSale(this.sale);
     this.showCancelForm.set(false);

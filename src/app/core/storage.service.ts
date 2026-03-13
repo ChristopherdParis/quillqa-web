@@ -81,6 +81,37 @@ export class StorageService {
     localStorage.setItem(STORAGE_KEYS.sales, JSON.stringify(sales));
   }
 
+  restoreStockForSale(sale: Sale): void {
+    const products = this.getProducts();
+    if (!sale.items.length) {
+      return;
+    }
+
+    let updated = false;
+    for (const item of sale.items) {
+      const productIndex = products.findIndex((product) => product.id === item.productId);
+      if (productIndex < 0) {
+        continue;
+      }
+
+      const current = products[productIndex];
+      if (!current) {
+        continue;
+      }
+
+      products[productIndex] = {
+        ...current,
+        stock: current.stock + item.quantity,
+        updatedAt: new Date(),
+      };
+      updated = true;
+    }
+
+    if (updated) {
+      localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products));
+    }
+  }
+
   generateSaleId(): string {
     const sales = this.getSales();
     const maxNum = Math.max(

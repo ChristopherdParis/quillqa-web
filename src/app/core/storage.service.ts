@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   sales: 'store_sales',
   settings: 'store_settings',
   authToken: 'store_auth_token',
+  authSession: 'store_auth_session',
 };
 
 @Injectable({ providedIn: 'root' })
@@ -135,14 +136,38 @@ export class StorageService {
   }
 
   getAuthToken(): string | null {
-    return localStorage.getItem(STORAGE_KEYS.authToken);
+    const rawSession = localStorage.getItem(STORAGE_KEYS.authSession);
+    if (!rawSession) {
+      return localStorage.getItem(STORAGE_KEYS.authToken);
+    }
+
+    try {
+      const parsed = JSON.parse(rawSession) as { token: string; expiresAt: number };
+      if (!parsed.token || !parsed.expiresAt) {
+        this.clearAuthToken();
+        return null;
+      }
+
+      if (Date.now() > parsed.expiresAt) {
+        this.clearAuthToken();
+        return null;
+      }
+
+      return parsed.token;
+    } catch {
+      this.clearAuthToken();
+      return null;
+    }
   }
 
-  setAuthToken(token: string): void {
+  setAuthToken(token: string, expiresInHours = 8): void {
+    const expiresAt = Date.now() + expiresInHours * 60 * 60 * 1000;
+    localStorage.setItem(STORAGE_KEYS.authSession, JSON.stringify({ token, expiresAt }));
     localStorage.setItem(STORAGE_KEYS.authToken, token);
   }
 
   clearAuthToken(): void {
     localStorage.removeItem(STORAGE_KEYS.authToken);
+    localStorage.removeItem(STORAGE_KEYS.authSession);
   }
 }

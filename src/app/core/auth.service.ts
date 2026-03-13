@@ -5,10 +5,15 @@ import { StorageService } from './storage.service';
 export class AuthService {
   readonly isAuthenticated = signal(false);
   readonly isLoading = signal(true);
+  readonly validCredentials = {
+    email: 'demo@tienda.es',
+    password: 'demo123',
+  };
 
   constructor(private readonly storage: StorageService) {
     this.storage.initializeStorage();
-    this.isAuthenticated.set(!!this.storage.getAuthToken());
+    const token = this.storage.getAuthToken();
+    this.isAuthenticated.set(!!token);
     this.isLoading.set(false);
   }
 
@@ -16,12 +21,12 @@ export class AuthService {
     this.isLoading.set(true);
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    if (email !== 'demo@tienda.es' || password !== 'demo123') {
+    if (email !== this.validCredentials.email || password !== this.validCredentials.password) {
       this.isLoading.set(false);
       throw new Error('Credenciales invalidas');
     }
 
-    this.storage.setAuthToken(`demo-token-${Date.now()}`);
+    this.storage.setAuthToken(`demo-token-${Date.now()}`, 8);
     this.isAuthenticated.set(true);
     this.isLoading.set(false);
   }

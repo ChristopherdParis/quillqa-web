@@ -94,14 +94,13 @@ export class ReportsPageComponent implements OnInit {
   }
 
   get filteredSales(): Sale[] {
-    if (!this.selectedDateTime) {
+    const selectedDate = this.selectedDateTime;
+    if (!selectedDate) {
       return [];
     }
 
     return this.sales.filter(
-      (sale) =>
-        !sale.canceled &&
-        this.isSameDay(sale.timestamp, this.selectedDateTime),
+      (sale) => !sale.canceled && this.isSameDay(sale.timestamp, selectedDate),
     );
   }
 

@@ -444,6 +444,7 @@ textarea {
   background: transparent;
   cursor: pointer;
   color: var(--muted);
+  min-height: 44px;
 }
 
 .tab-button.active {
@@ -493,8 +494,8 @@ textarea {
 }
 
 .btn-icon {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 0;
 }
 
@@ -660,18 +661,30 @@ textarea {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 6px;
-  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  height: 74px;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(18px);
+  z-index: 30;
 }
 
 .bottom-nav-link {
   flex-direction: column;
   gap: 4px;
   padding: 8px 4px;
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   text-align: center;
+  min-height: 0;
+  line-height: 1.1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bottom-nav-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .mobile-only {

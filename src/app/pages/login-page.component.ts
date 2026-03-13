@@ -12,8 +12,8 @@ import { AuthService } from '../core/auth.service';
     <section class="auth-page">
       <div class="auth-card">
         <div class="auth-header">
-          <h1>Mi Tienda</h1>
-          <p>Inventario y Ventas</p>
+          <h1>Acceso a Mi Tienda</h1>
+          <p>Ingresa para gestionar inventario y ventas</p>
         </div>
 
         <form class="form-stack" (ngSubmit)="submit()">
@@ -22,20 +22,38 @@ import { AuthService } from '../core/auth.service';
           }
 
           <label class="field">
-            <span>Correo o Usuario</span>
-            <input [(ngModel)]="email" name="email" type="email" placeholder="Ingresa tu correo" />
+            <span>Usuario</span>
+            <input
+              [(ngModel)]="user"
+              name="user"
+              type="text"
+              autocomplete="username"
+              placeholder="Correo o usuario"
+              [disabled]="loading()"
+            />
           </label>
 
           <label class="field">
-            <span>Contrasena</span>
-            <input [(ngModel)]="password" name="password" type="password" placeholder="Ingresa tu contrasena" />
+            <span>Contrase\u00f1a</span>
+            <input
+              [(ngModel)]="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              placeholder="Ingresa tu contrase\u00f1a"
+              [disabled]="loading()"
+            />
           </label>
 
           <button class="btn btn-primary btn-block" type="submit" [disabled]="loading()">
             {{ loading() ? 'Ingresando...' : 'Ingresar' }}
           </button>
 
-          <div class="auth-footer">Demo: demo@tienda.es / demo123</div>
+          <div class="auth-footer">
+            <p>Credenciales de prueba para acceso inicial</p>
+            <p><strong>Usuario:</strong> {{ defaultCredentials.user }}</p>
+            <p><strong>Contrase\u00f1a:</strong> {{ defaultCredentials.password }}</p>
+          </div>
         </form>
       </div>
     </section>
@@ -45,20 +63,31 @@ export class LoginPageComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 
-  email = 'demo@tienda.es';
-  password = 'demo123';
+  user = '';
+  password = '';
+  readonly defaultCredentials = this.auth.getDefaultCredentials();
   readonly error = signal('');
   readonly loading = signal(false);
+  readonly minPasswordLength = 6;
 
   async submit(): Promise<void> {
     this.error.set('');
+
+    const normalizedUser = this.user.trim();
+    const normalizedPassword = this.password.trim();
+
+    if (!normalizedUser || !normalizedPassword || normalizedPassword.length < this.minPasswordLength) {
+      this.error.set('Completa usuario y contrase\u00f1a');
+      return;
+    }
+
     this.loading.set(true);
 
     try {
-      await this.auth.login(this.email, this.password);
+      await this.auth.login(normalizedUser, normalizedPassword);
       await this.router.navigate(['/dashboard']);
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Error al iniciar sesion');
+      this.error.set(error instanceof Error ? error.message : 'Usuario o contrase\u00f1a incorrectos');
     } finally {
       this.loading.set(false);
     }

@@ -112,7 +112,9 @@ export class DashboardPageComponent implements OnInit {
   ngOnInit(): void {
     setTimeout(() => {
       this.products = this.storage.getProducts();
-      this.sales = this.storage.getSales().filter((sale) => !sale.canceled);
+      const allSales = this.storage.getSales().filter((sale) => !sale.canceled);
+      const today = new Date();
+      this.sales = allSales.filter((sale) => this.isSameDay(sale.timestamp, today));
       this.recentSales = [...this.sales]
         .sort((left, right) => right.timestamp.getTime() - left.timestamp.getTime())
         .slice(0, 5);
@@ -122,6 +124,14 @@ export class DashboardPageComponent implements OnInit {
       this.totalProfit = this.sales.reduce((sum, sale) => sum + sale.estimatedProfit, 0);
       this.loading.set(false);
     }, 300);
+  }
+
+  private isSameDay(left: Date, right: Date): boolean {
+    return (
+      left.getFullYear() === right.getFullYear() &&
+      left.getMonth() === right.getMonth() &&
+      left.getDate() === right.getDate()
+    );
   }
 
   formatCurrency(value: number): string {

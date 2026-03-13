@@ -34,10 +34,17 @@ import { StorageService } from '../core/storage.service';
                 <p>Ingresos Totales</p>
                 <strong>{{ formatCurrency(totalRevenue) }}</strong>
               </article>
-              <article class="card metric-card">
+              <article class="card metric-card desktop-only">
                 <p>Ganancia Estimada</p>
                 <strong class="text-primary">{{ formatCurrency(totalProfit) }}</strong>
               </article>
+            </div>
+
+            <div class="quick-actions-panel mobile-only quick-actions-panel-mobile">
+              <div class="quick-actions-grid">
+                <a class="btn btn-primary btn-block" routerLink="/sales/new">Nueva Venta</a>
+                <a class="btn btn-outline btn-block" routerLink="/products/new">Nuevo Producto</a>
+              </div>
             </div>
 
             @if (recentSales.length) {
@@ -80,7 +87,7 @@ import { StorageService } from '../core/storage.service';
             }
           </div>
 
-          <aside class="quick-actions-panel">
+          <aside class="quick-actions-panel desktop-only">
             <div class="quick-actions-grid">
               <a class="btn btn-primary btn-block" routerLink="/sales/new">Nueva Venta</a>
               <a class="btn btn-outline btn-block" routerLink="/products/new">Nuevo Producto</a>

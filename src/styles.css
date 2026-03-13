@@ -186,6 +186,19 @@ textarea {
   grid-template-columns: repeat(2, 1fr);
 }
 
+.quick-actions-panel-mobile {
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.quick-actions-panel-mobile .quick-actions-grid {
+  gap: 10px;
+}
+
 .quick-actions-panel {
   align-self: start;
 }
@@ -598,6 +611,61 @@ textarea {
   padding: 12px;
 }
 
+.feedback-stack {
+  position: fixed;
+  right: 16px;
+  top: 16px;
+  left: 16px;
+  z-index: 60;
+  display: grid;
+  gap: 10px;
+}
+
+.feedback-toast {
+  width: min(100%, 420px);
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--foreground);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.feedback-toast p {
+  margin: 0;
+}
+
+.feedback-toast.success {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.feedback-toast.error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.feedback-toast.info {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.feedback-close {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--foreground);
+  font-size: 1rem;
+  width: 26px;
+  height: 26px;
+  border-radius: 99px;
+}
+
 .sidebar {
   position: sticky;
   top: 0;
@@ -658,8 +726,10 @@ textarea {
   left: 0;
   right: 0;
   bottom: 0;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  display: flex !important;
+  align-items: stretch;
+  flex-direction: row;
+  justify-content: space-evenly;
   gap: 6px;
   height: 74px;
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
@@ -670,7 +740,10 @@ textarea {
 }
 
 .bottom-nav-link {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
   flex-direction: column;
+  justify-content: center;
   gap: 4px;
   padding: 8px 4px;
   font-size: 0.66rem;
@@ -754,7 +827,11 @@ textarea {
   }
 
   .mobile-only {
-    display: none;
+    display: none !important;
+  }
+
+  .bottom-nav {
+    display: none !important;
   }
 
   .desktop-only {

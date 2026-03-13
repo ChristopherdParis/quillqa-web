@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Sale } from '../core/models';
 import { StorageService } from '../core/storage.service';
+import { FeedbackService } from '../core/feedback.service';
 
 @Component({
   selector: 'app-sale-detail-page',
@@ -153,6 +154,7 @@ export class SaleDetailPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly location = inject(Location);
   private readonly storage = inject(StorageService);
+  private readonly feedback = inject(FeedbackService);
 
   readonly loading = signal(true);
   readonly showCancelForm = signal(false);
@@ -188,22 +190,30 @@ export class SaleDetailPageComponent implements OnInit {
 
   cancelSale(): void {
     if (!this.sale) {
+      this.feedback.error('No se encontró la venta para anular.');
       return;
     }
 
     if (!this.canCancelSale()) {
+      this.feedback.error('Completa el motivo de anulación.');
       return;
     }
 
     if (this.sale.canceled) {
+      this.feedback.info('La venta ya estaba anulada.');
       return;
     }
 
     const reason = this.selectedReason === 'Otro' ? this.customReason.trim() : this.selectedReason;
-    this.storage.restoreStockForSale(this.sale);
-    this.sale = { ...this.sale, canceled: true, cancellationReason: reason };
-    this.storage.saveSale(this.sale);
-    this.showCancelForm.set(false);
+    try {
+      this.storage.restoreStockForSale(this.sale);
+      this.sale = { ...this.sale, canceled: true, cancellationReason: reason };
+      this.storage.saveSale(this.sale);
+      this.showCancelForm.set(false);
+      this.feedback.success('Venta anulada y stock restaurado.');
+    } catch {
+      this.feedback.error('No se pudo anular la venta. Intenta de nuevo.');
+    }
   }
 
   resetCancelForm(): void {

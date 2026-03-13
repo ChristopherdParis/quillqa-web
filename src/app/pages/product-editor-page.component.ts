@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Product } from '../core/models';
 import { StorageService } from '../core/storage.service';
+import { FeedbackService } from '../core/feedback.service';
 
 type ProductFormState = {
   name: string;
@@ -140,6 +141,12 @@ export class ProductEditorPageComponent implements OnInit {
 
   async save(): Promise<void> {
     if (!this.form.name.trim()) {
+      this.feedback.error('El nombre del producto es obligatorio.');
+      return;
+    }
+
+    if (this.form.costPrice < 0 || this.form.salePrice < 0 || this.form.stock < 0 || this.form.minStock < 0) {
+      this.feedback.error('No se permiten valores negativos.');
       return;
     }
 
@@ -161,11 +168,16 @@ export class ProductEditorPageComponent implements OnInit {
       };
 
       this.storage.saveProduct(product);
+      this.feedback.success(this.isEditMode ? 'Producto actualizado correctamente.' : 'Producto creado correctamente.');
       await this.router.navigate(['/products']);
+    } catch {
+      this.feedback.error('No se pudo guardar el producto. Revisa los datos e intenta de nuevo.');
     } finally {
       this.saving.set(false);
     }
   }
+
+  private readonly feedback = inject(FeedbackService);
 
   async remove(): Promise<void> {
     if (!this.product) {
@@ -177,8 +189,13 @@ export class ProductEditorPageComponent implements OnInit {
       return;
     }
 
-    this.storage.deleteProduct(this.product.id);
-    await this.router.navigate(['/products']);
+    try {
+      this.storage.deleteProduct(this.product.id);
+      this.feedback.success('Producto eliminado correctamente.');
+      await this.router.navigate(['/products']);
+    } finally {
+      this.saving.set(false);
+    }
   }
 
   goBack(): void {

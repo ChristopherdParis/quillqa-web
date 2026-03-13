@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '../core/auth.service';
 import { BusinessSettings } from '../core/models';
 import { StorageService } from '../core/storage.service';
+import { FeedbackService } from '../core/feedback.service';
 
 @Component({
   selector: 'app-settings-page',
@@ -62,6 +63,7 @@ export class SettingsPageComponent implements OnInit {
   private readonly storage = inject(StorageService);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly feedback = inject(FeedbackService);
 
   readonly loading = signal(true);
   readonly saving = signal(false);
@@ -75,10 +77,21 @@ export class SettingsPageComponent implements OnInit {
   }
 
   async save(): Promise<void> {
+    if (!this.settings.name.trim()) {
+      this.feedback.error('El nombre del negocio es obligatorio.');
+      return;
+    }
+
     this.saving.set(true);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    this.storage.saveBusinessSettings(this.settings);
-    this.saving.set(false);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      this.storage.saveBusinessSettings(this.settings);
+      this.feedback.success('Configuración guardada correctamente.');
+    } catch {
+      this.feedback.error('No se pudo guardar la configuración.');
+    } finally {
+      this.saving.set(false);
+    }
   }
 
   async logout(): Promise<void> {

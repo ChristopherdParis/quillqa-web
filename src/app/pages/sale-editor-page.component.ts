@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Product, Sale, SaleItem } from '../core/models';
 import { StorageService } from '../core/storage.service';
+import { FeedbackService } from '../core/feedback.service';
 
 type SaleStep = 'cart' | 'confirm';
 
@@ -190,6 +191,7 @@ export class SaleEditorPageComponent implements OnInit {
   private readonly location = inject(Location);
   private readonly router = inject(Router);
   private readonly storage = inject(StorageService);
+  private readonly feedback = inject(FeedbackService);
 
   readonly loading = signal(true);
   readonly saving = signal(false);
@@ -267,6 +269,7 @@ export class SaleEditorPageComponent implements OnInit {
     const quantity = Math.max(1, Math.min(this.selectedQty[product.id] ?? 1, maxAvailable));
 
     if (maxAvailable < 1) {
+      this.feedback.error('No hay stock suficiente para agregar más de este producto.');
       return;
     }
 
@@ -291,15 +294,18 @@ export class SaleEditorPageComponent implements OnInit {
     }
 
     this.selectedQty[product.id] = 1;
+    this.feedback.success('Producto agregado al carrito.');
   }
 
   updateQuantity(productId: string, quantity: number): void {
     if (quantity < 1) {
+      this.feedback.error('La cantidad debe ser mayor a cero.');
       return;
     }
 
     const product = this.products.find((item) => item.id === productId);
     if (!product || quantity > product.stock) {
+      this.feedback.error('La cantidad supera el stock disponible.');
       return;
     }
 
@@ -314,6 +320,7 @@ export class SaleEditorPageComponent implements OnInit {
 
   goToConfirm(): void {
     if (!this.cartItems.length) {
+      this.feedback.error('Agrega al menos un producto antes de continuar.');
       return;
     }
 
@@ -330,6 +337,12 @@ export class SaleEditorPageComponent implements OnInit {
 
   async completeSale(): Promise<void> {
     if (!this.cartItems.length) {
+      this.feedback.error('No hay productos en el carrito.');
+      return;
+    }
+
+    if (!this.canSubmitSale()) {
+      this.feedback.error('El monto recibido es menor al total de la venta.');
       return;
     }
 
@@ -365,6 +378,9 @@ export class SaleEditorPageComponent implements OnInit {
       }
 
       await this.router.navigate(['/sales', sale.id]);
+      this.feedback.success(`Venta ${sale.id} registrada correctamente.`);
+    } catch {
+      this.feedback.error('No se pudo registrar la venta. Intenta nuevamente.');
     } finally {
       this.saving.set(false);
     }

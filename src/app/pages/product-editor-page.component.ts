@@ -84,6 +84,17 @@ type ProductFormState = {
             </div>
           </article>
 
+          @if (formErrors().length) {
+            <article class="card validation-summary">
+              <h3 class="validation-title">Corrige estos campos:</h3>
+              <ul>
+                @for (message of formErrors(); track message) {
+                  <li>{{ message }}</li>
+                }
+              </ul>
+            </article>
+          }
+
           <div class="form-actions">
             <button class="btn btn-primary btn-block" type="submit" [disabled]="saving()">
               {{ saving() ? 'Guardando...' : isEditMode ? 'Actualizar Producto' : 'Crear Producto' }}
@@ -106,6 +117,7 @@ export class ProductEditorPageComponent implements OnInit {
 
   readonly loading = signal(true);
   readonly saving = signal(false);
+  readonly formErrors = signal<string[]>([]);
 
   readonly categories = ['Tornillos', 'Herramientas', 'Accesorios', 'Iluminacion', 'Bebidas', 'Alimentos', 'Electronica', 'Otros'];
 
@@ -140,29 +152,32 @@ export class ProductEditorPageComponent implements OnInit {
   }
 
   async save(): Promise<void> {
-    if (!this.form.name.trim()) {
-      this.feedback.error('El nombre del producto es obligatorio.');
+    const errors = this.validateForm();
+    if (errors.length) {
+      this.formErrors.set(errors);
+      this.feedback.error('Corrige los datos del producto antes de continuar.');
       return;
     }
 
-    if (this.form.costPrice < 0 || this.form.salePrice < 0 || this.form.stock < 0 || this.form.minStock < 0) {
-      this.feedback.error('No se permiten valores negativos.');
-      return;
-    }
+    this.formErrors.set([]);
 
     this.saving.set(true);
 
     try {
+      const normalizedCostPrice = this.normalizePrice(this.form.costPrice);
+      const normalizedSalePrice = this.normalizePrice(this.form.salePrice);
+      const normalizedStock = this.normalizeQuantity(this.form.stock);
+      const normalizedMinStock = this.normalizeQuantity(this.form.minStock);
       const now = new Date();
       const product: Product = {
         id: this.product?.id ?? String(Date.now()),
         name: this.form.name.trim(),
         code: this.form.code.trim(),
         category: this.form.category,
-        costPrice: Number(this.form.costPrice) || 0,
-        salePrice: Number(this.form.salePrice) || 0,
-        stock: Number(this.form.stock) || 0,
-        minStock: Number(this.form.minStock) || 5,
+        costPrice: normalizedCostPrice,
+        salePrice: normalizedSalePrice,
+        stock: normalizedStock,
+        minStock: normalizedMinStock,
         createdAt: this.product?.createdAt ?? now,
         updatedAt: now,
       };
@@ -178,6 +193,70 @@ export class ProductEditorPageComponent implements OnInit {
   }
 
   private readonly feedback = inject(FeedbackService);
+
+  private validateForm(): string[] {
+    const errors: string[] = [];
+    const normalizedName = this.form.name.trim();
+    const normalizedCode = this.form.code.trim().toLowerCase();
+    const price = this.normalizePrice(this.form.costPrice);
+    const salePrice = this.normalizePrice(this.form.salePrice);
+    const stock = this.normalizeQuantity(this.form.stock);
+    const minStock = this.normalizeQuantity(this.form.minStock);
+
+    if (!normalizedName) {
+      errors.push('El nombre del producto es obligatorio.');
+    }
+
+    if (!this.form.code.trim()) {
+      errors.push('El código es recomendado para identificar inventario.');
+    }
+
+    if (price < 0) {
+      errors.push('El precio de compra no puede ser negativo.');
+    }
+
+    if (salePrice <= 0) {
+      errors.push('El precio de venta debe ser mayor a 0.');
+    }
+
+    if (salePrice < price) {
+      errors.push('El precio de venta debe ser mayor o igual al precio de compra.');
+    }
+
+    if (stock < 0) {
+      errors.push('El stock actual no puede ser negativo.');
+    }
+
+    if (minStock < 0) {
+      errors.push('El stock mínimo no puede ser negativo.');
+    }
+
+    if (this.product) {
+      const products = this.storage.getProducts().filter((item) => item.id !== this.product?.id);
+      const hasDuplicateCode = products.some((item) => item.code.trim().toLowerCase() === normalizedCode && !!normalizedCode);
+      if (hasDuplicateCode) {
+        errors.push('Ya existe otro producto con ese código.');
+      }
+    } else {
+      const products = this.storage.getProducts();
+      const hasDuplicateCode = products.some((item) => item.code.trim().toLowerCase() === normalizedCode && !!normalizedCode);
+      if (hasDuplicateCode) {
+        errors.push('Ya existe un producto con ese código.');
+      }
+    }
+
+    return errors;
+  }
+
+  private normalizePrice(value: number): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Number(parsed.toFixed(2)) : -1;
+  }
+
+  private normalizeQuantity(value: number): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : -1;
+  }
 
   async remove(): Promise<void> {
     if (!this.product) {

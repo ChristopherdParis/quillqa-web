@@ -68,11 +68,22 @@ type SaleStep = 'cart' | 'confirm';
           <aside class="sales-sidebar">
             <h2 class="section-title">Carrito</h2>
 
-            @if (!cartItems.length) {
-              <div class="card empty-state">Carrito vacio</div>
-            } @else {
-              <div class="stack-sm">
-                @for (item of cartItems; track item.productId) {
+              @if (!cartItems.length) {
+                <div class="card empty-state">Carrito vacio</div>
+              } @else {
+                @if (formErrors().length) {
+                  <article class="card validation-summary">
+                    <h3 class="validation-title">Corrige estos datos antes de continuar:</h3>
+                    <ul>
+                      @for (message of formErrors(); track message) {
+                        <li>{{ message }}</li>
+                      }
+                    </ul>
+                  </article>
+                }
+
+                <div class="stack-sm">
+                  @for (item of cartItems; track item.productId) {
                   <article class="card cart-item-card">
                     <div class="cart-item-head">
                       <div>
@@ -95,11 +106,11 @@ type SaleStep = 'cart' | 'confirm';
               </div>
             }
 
-            <div class="card sale-total-card">
-              <p>Total actual</p>
-              <strong>{{ total.toFixed(2) }} EUR</strong>
-              <button class="btn btn-primary btn-block" type="button" (click)="goToConfirm()" [disabled]="!cartItems.length">
-                Continuar a Confirmacion
+              <div class="card sale-total-card">
+                <p>Total actual</p>
+                <strong>{{ total.toFixed(2) }} EUR</strong>
+                <button class="btn btn-primary btn-block" type="button" (click)="goToConfirm()" [disabled]="!cartItems.length">
+                  Continuar a Confirmacion
               </button>
             </div>
           </aside>
@@ -135,11 +146,25 @@ type SaleStep = 'cart' | 'confirm';
                   </select>
                 </label>
 
-                @if (paymentMethod === 'cash') {
-                  <label class="field">
-                    <span>Monto recibido</span>
-                    <input [(ngModel)]="amountPaid" name="amountPaid" type="number" min="0" step="0.01" placeholder="0.00" />
-                  </label>
+              @if (paymentMethod === 'cash') {
+                @if (amountPaid !== null && amountPaid !== undefined && !isValidPaymentAmount()) {
+                  <p class="field field-inline validation-inline-error">
+                    El monto recibido debe ser mayor o igual al total.
+                  </p>
+                }
+
+                <label class="field">
+                  <span>Monto recibido</span>
+                  <input
+                    [(ngModel)]="amountPaid"
+                    name="amountPaid"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    [class.field-error]="paymentMethod === 'cash' && !canSubmitSale() && amountPaid !== null"
+                  />
+                </label>
 
                   <div class="sale-payment-summary">
                     <div>
@@ -176,6 +201,16 @@ type SaleStep = 'cart' | 'confirm';
               @if (paymentMethod === 'cash') {
                 <p class="sale-final-copy">Pago recibido: {{ normalizedAmountPaid.toFixed(2) }} EUR</p>
               }
+              @if (formErrors().length) {
+                <article class="card validation-summary">
+                  <h3 class="validation-title">No se puede registrar la venta:</h3>
+                  <ul>
+                    @for (message of formErrors(); track message) {
+                      <li>{{ message }}</li>
+                    }
+                  </ul>
+                </article>
+              }
               <button class="btn btn-primary btn-block" type="button" (click)="completeSale()" [disabled]="saving() || !canSubmitSale()">
                 {{ saving() ? 'Registrando...' : 'Confirmar y Registrar Venta' }}
               </button>
@@ -196,6 +231,7 @@ export class SaleEditorPageComponent implements OnInit {
   readonly loading = signal(true);
   readonly saving = signal(false);
   readonly currentStep = signal<SaleStep>('cart');
+  readonly formErrors = signal<string[]>([]);
 
   products: Product[] = [];
   cartItems: SaleItem[] = [];
@@ -266,7 +302,8 @@ export class SaleEditorPageComponent implements OnInit {
   addToCart(product: Product): void {
     const existing = this.cartItems.find((item) => item.productId === product.id)?.quantity ?? 0;
     const maxAvailable = product.stock - existing;
-    const quantity = Math.max(1, Math.min(this.selectedQty[product.id] ?? 1, maxAvailable));
+    const quantity = this.normalizeQuantity(this.selectedQty[product.id] ?? 1);
+    const requestedQuantity = Math.max(1, Math.min(quantity, maxAvailable));
 
     if (maxAvailable < 1) {
       this.feedback.error('No hay stock suficiente para agregar más de este producto.');
@@ -286,9 +323,9 @@ export class SaleEditorPageComponent implements OnInit {
         {
           productId: product.id,
           productName: product.name,
-          quantity,
+          quantity: requestedQuantity,
           unitPrice: product.salePrice,
-          subtotal: quantity * product.salePrice,
+          subtotal: requestedQuantity * product.salePrice,
         },
       ];
     }
@@ -298,19 +335,25 @@ export class SaleEditorPageComponent implements OnInit {
   }
 
   updateQuantity(productId: string, quantity: number): void {
-    if (quantity < 1) {
+    const normalizedQuantity = this.normalizeQuantity(quantity);
+    if (normalizedQuantity < 1) {
       this.feedback.error('La cantidad debe ser mayor a cero.');
       return;
     }
 
     const product = this.products.find((item) => item.id === productId);
-    if (!product || quantity > product.stock) {
+    if (!product) {
+      this.feedback.error('Producto no encontrado para actualizar.');
+      return;
+    }
+
+    if (normalizedQuantity > product.stock) {
       this.feedback.error('La cantidad supera el stock disponible.');
       return;
     }
 
     this.cartItems = this.cartItems.map((item) =>
-      item.productId === productId ? { ...item, quantity, subtotal: quantity * item.unitPrice } : item,
+      item.productId === productId ? { ...item, quantity: normalizedQuantity, subtotal: normalizedQuantity * item.unitPrice } : item,
     );
   }
 
@@ -319,30 +362,83 @@ export class SaleEditorPageComponent implements OnInit {
   }
 
   goToConfirm(): void {
-    if (!this.cartItems.length) {
-      this.feedback.error('Agrega al menos un producto antes de continuar.');
+    const errors = this.getValidationErrors();
+    if (errors.length) {
+      this.formErrors.set(errors);
+      this.feedback.error('Corrige los datos de la venta antes de continuar.');
       return;
     }
 
+    this.formErrors.set([]);
     this.currentStep.set('confirm');
   }
 
   canSubmitSale(): boolean {
+    const errors = this.getValidationErrors();
+    return errors.length === 0 && this.total > 0;
+  }
+
+  private getValidationErrors(): string[] {
+    const errors: string[] = [];
+
+    if (!this.cartItems.length) {
+      errors.push('Agrega al menos un producto.');
+    }
+
+    if (!this.paymentMethod) {
+      errors.push('Selecciona un método de pago.');
+    }
+
+    const invalidQuantityItems = this.cartItems.filter((item) => {
+      const product = this.products.find((current) => current.id === item.productId);
+      if (!product) {
+        return false;
+      }
+
+      return item.quantity > product.stock;
+    });
+
+    if (invalidQuantityItems.length) {
+      errors.push('Hay productos en el carrito con stock insuficiente.');
+    }
+
+    const unknownProduct = this.cartItems.find((item) => !this.products.find((product) => product.id === item.productId));
+    if (unknownProduct) {
+      errors.push(`El producto "${unknownProduct.productName}" ya no existe.`);
+    }
+
+    if (this.paymentMethod === 'cash') {
+      if (!this.isValidPaymentAmount()) {
+        errors.push('El monto recibido debe ser igual o mayor al total.');
+      }
+    }
+
+    return errors;
+  }
+
+  isValidPaymentAmount(): boolean {
     if (this.paymentMethod !== 'cash') {
       return true;
+    }
+
+    if (!Number.isFinite(this.normalizedAmountPaid)) {
+      return false;
     }
 
     return this.normalizedAmountPaid >= this.total;
   }
 
   async completeSale(): Promise<void> {
-    if (!this.cartItems.length) {
-      this.feedback.error('No hay productos en el carrito.');
+    const errors = this.getValidationErrors();
+    if (errors.length) {
+      this.formErrors.set(errors);
+      this.feedback.error('Corrige los datos antes de registrar la venta.');
       return;
     }
 
-    if (!this.canSubmitSale()) {
-      this.feedback.error('El monto recibido es menor al total de la venta.');
+    if (!this.currentStockIsAvailable()) {
+      this.formErrors.set(['Stock insuficiente para registrar esta venta.']);
+      this.feedback.error('Revisa stock disponible antes de confirmar.');
       return;
     }
 
@@ -384,6 +480,22 @@ export class SaleEditorPageComponent implements OnInit {
     } finally {
       this.saving.set(false);
     }
+  }
+
+  private currentStockIsAvailable(): boolean {
+    for (const cartItem of this.cartItems) {
+      const product = this.products.find((item) => item.id === cartItem.productId);
+      if (!product || cartItem.quantity > product.stock) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private normalizeQuantity(value: number): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.max(1, Math.floor(parsed)) : 1;
   }
 
   handleBack(): void {

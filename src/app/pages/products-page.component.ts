@@ -3,7 +3,8 @@ import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Product } from '../core/models';
-import { StorageService } from '../core/storage.service';
+import { InventoryApiService } from '../core/inventory-api.service';
+import { FeedbackService } from '../core/feedback.service';
 
 type ProductTab = 'all' | 'low' | 'out';
 
@@ -18,12 +19,19 @@ type ProductTab = 'all' | 'low' | 'out';
           <h1>Productos</h1>
           <p>Gestiona tu inventario</p>
         </div>
-        <a class="btn btn-primary" routerLink="/products/new">Nuevo Producto</a>
+        <a class="btn btn-primary" routerLink="/app/products/new">Nuevo Producto</a>
       </div>
 
       @if (loading()) {
         <p class="loading-copy">Cargando...</p>
       } @else {
+        @if (errorMessage()) {
+          <article class="card validation-summary">
+            <h3 class="validation-title">No se pudo cargar desde backend</h3>
+            <p>{{ errorMessage() }}</p>
+          </article>
+        }
+
         <div class="stack-md">
           <input [(ngModel)]="searchTerm" class="search-input" type="text" placeholder="Buscar por nombre o codigo..." />
 
@@ -38,7 +46,7 @@ type ProductTab = 'all' | 'low' | 'out';
           } @else {
             <div class="mobile-only stack-sm">
               @for (product of visibleProducts; track product.id) {
-                <a class="card list-card" [routerLink]="['/products', product.id]">
+                <a class="card list-card" [routerLink]="['/app/products', product.id]">
                   <div>
                     <h3>{{ product.name }}</h3>
                     <p>Stock: {{ product.stock }} | {{ product.salePrice.toFixed(2) }} EUR</p>
@@ -75,7 +83,8 @@ type ProductTab = 'all' | 'low' | 'out';
                         </span>
                       </td>
                       <td class="text-right">
-                        <a class="btn btn-ghost" [routerLink]="['/products', product.id]">Editar</a>
+                        <a class="btn btn-ghost" [routerLink]="['/app/products', product.id]">Editar</a>
+                        <button class="btn btn-outline" type="button" (click)="deleteProduct(product.id, $event)">Eliminar</button>
                       </td>
                     </tr>
                   }
@@ -94,13 +103,38 @@ export class ProductsPageComponent implements OnInit {
   activeTab: ProductTab = 'all';
   products: Product[] = [];
 
-  constructor(private readonly storage: StorageService) {}
+  readonly errorMessage = signal('');
 
-  ngOnInit(): void {
-    setTimeout(() => {
-      this.products = this.storage.getProducts();
+  constructor(private readonly inventoryApi: InventoryApiService, private readonly feedback: FeedbackService) {}
+
+  async ngOnInit(): Promise<void> {
+    try {
+      this.products = await this.inventoryApi.listProductCatalogForUi();
+      this.errorMessage.set('');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo cargar el catalogo desde el backend.';
+      this.errorMessage.set(message);
+      this.feedback.error(message);
+    } finally {
       this.loading.set(false);
-    }, 300);
+    }
+  }
+
+  async deleteProduct(productId: string, event: Event): Promise<void> {
+    event.preventDefault();
+    const shouldDelete = window.confirm('Seguro que deseas eliminar este producto?');
+    if (!shouldDelete) {
+      return;
+    }
+
+    try {
+      await this.inventoryApi.deleteProduct(productId);
+      this.products = this.products.filter((product) => product.id !== productId);
+      this.feedback.success('Producto eliminado.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo eliminar el producto.';
+      this.feedback.error(message);
+    }
   }
 
   get visibleProducts(): Product[] {

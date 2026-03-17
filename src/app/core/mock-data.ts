@@ -23,4 +23,5 @@ export const mockBusinessSettings: BusinessSettings = {
   phone: '+34 612 345 678',
   currency: 'EUR',
   userId: 'user-001',
+  tenantId: '',
 };

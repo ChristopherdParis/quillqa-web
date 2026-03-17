@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Product, Sale } from '../core/models';
-import { StorageService } from '../core/storage.service';
+import { InventoryApiService } from '../core/inventory-api.service';
 
 @Component({
   selector: 'app-dashboard-page',
@@ -34,6 +34,14 @@ import { StorageService } from '../core/storage.service';
                 <p>Ingresos Totales</p>
                 <strong>{{ formatCurrency(totalRevenue) }}</strong>
               </article>
+              <article class="card metric-card">
+                <p>Entradas de Inventario</p>
+                <strong class="text-primary">{{ totalStockIn }} uds</strong>
+              </article>
+              <article class="card metric-card">
+                <p>Salidas de Inventario</p>
+                <strong class="text-danger">{{ totalStockOut }} uds</strong>
+              </article>
               <article class="card metric-card desktop-only">
                 <p>Ganancia Estimada</p>
                 <strong class="text-primary">{{ formatCurrency(totalProfit) }}</strong>
@@ -42,8 +50,8 @@ import { StorageService } from '../core/storage.service';
 
             <div class="quick-actions-panel mobile-only quick-actions-panel-mobile">
               <div class="quick-actions-grid">
-                <a class="btn btn-primary btn-block" routerLink="/sales/new">Nueva Venta</a>
-                <a class="btn btn-outline btn-block" routerLink="/products/new">Nuevo Producto</a>
+                <a class="btn btn-primary btn-block" routerLink="/app/sales/new">Nueva Venta</a>
+                <a class="btn btn-outline btn-block" routerLink="/app/products/new">Nuevo Producto</a>
               </div>
             </div>
 
@@ -52,7 +60,7 @@ import { StorageService } from '../core/storage.service';
                 <h2 class="section-title">Ultimas Ventas del Dia</h2>
                 <div class="stack-sm">
                   @for (sale of recentSales; track sale.id) {
-                    <a class="card list-card" [routerLink]="['/sales', sale.id]">
+                    <a class="card list-card" [routerLink]="['/app/sales', sale.id]">
                       <div>
                         <h3>Venta #{{ sale.id }}</h3>
                         <p>{{ formatTime(sale.timestamp) }} | {{ sale.items.length }} articulos</p>
@@ -89,8 +97,8 @@ import { StorageService } from '../core/storage.service';
 
           <aside class="quick-actions-panel desktop-only">
             <div class="quick-actions-grid">
-              <a class="btn btn-primary btn-block" routerLink="/sales/new">Nueva Venta</a>
-              <a class="btn btn-outline btn-block" routerLink="/products/new">Nuevo Producto</a>
+              <a class="btn btn-primary btn-block" routerLink="/app/sales/new">Nueva Venta</a>
+              <a class="btn btn-outline btn-block" routerLink="/app/products/new">Nuevo Producto</a>
             </div>
           </aside>
         </div>
@@ -99,16 +107,17 @@ import { StorageService } from '../core/storage.service';
   `,
 })
 export class DashboardPageComponent implements OnInit {
-  private readonly storage = inject(StorageService);
+  private readonly inventoryApi = inject(InventoryApiService);
 
   readonly loading = signal(true);
   products: Product[] = [];
-  sales: Sale[] = [];
   alerts: Product[] = [];
   recentSales: Sale[] = [];
   totalSales = 0;
   totalRevenue = 0;
   totalProfit = 0;
+  totalStockIn = 0;
+  totalStockOut = 0;
   formattedDate = new Intl.DateTimeFormat('es-ES', {
     weekday: 'long',
     year: 'numeric',
@@ -116,29 +125,41 @@ export class DashboardPageComponent implements OnInit {
     day: 'numeric',
   }).format(new Date());
 
-  ngOnInit(): void {
-    setTimeout(() => {
-      this.products = this.storage.getProducts();
-      const allSales = this.storage.getSales().filter((sale) => !sale.canceled);
-      const today = new Date();
-      this.sales = allSales.filter((sale) => this.isSameDay(sale.timestamp, today));
-      this.recentSales = [...this.sales]
-        .sort((left, right) => right.timestamp.getTime() - left.timestamp.getTime())
-        .slice(0, 5);
+  async ngOnInit(): Promise<void> {
+    try {
+      const [products, summary] = await Promise.all([
+        this.inventoryApi.listProductCatalogForUi(),
+        this.inventoryApi.getDashboardSummary(this.todayRange),
+      ]);
+      this.products = products;
+      this.recentSales = [...summary.recentSales];
       this.alerts = this.products.filter((product) => product.stock <= product.minStock).sort((a, b) => a.stock - b.stock);
-      this.totalSales = this.sales.length;
-      this.totalRevenue = this.sales.reduce((sum, sale) => sum + sale.total, 0);
-      this.totalProfit = this.sales.reduce((sum, sale) => sum + sale.estimatedProfit, 0);
+      this.totalSales = summary.totalSales;
+      this.totalRevenue = summary.totalRevenue;
+      this.totalProfit = summary.totalProfit;
+      this.totalStockIn = summary.stockIn;
+      this.totalStockOut = summary.stockOut;
+    } catch {
+      this.products = [];
+      this.recentSales = [];
+      this.alerts = [];
+      this.totalSales = 0;
+      this.totalRevenue = 0;
+      this.totalProfit = 0;
+      this.totalStockIn = 0;
+      this.totalStockOut = 0;
+    } finally {
       this.loading.set(false);
-    }, 300);
+    }
   }
 
-  private isSameDay(left: Date, right: Date): boolean {
-    return (
-      left.getFullYear() === right.getFullYear() &&
-      left.getMonth() === right.getMonth() &&
-      left.getDate() === right.getDate()
-    );
+  private get todayRange(): { from: string; to: string } {
+    const now = new Date();
+    const from = new Date(now);
+    const to = new Date(now);
+    from.setHours(0, 0, 0, 0);
+    to.setHours(23, 59, 59, 999);
+    return { from: from.toISOString(), to: to.toISOString() };
   }
 
   formatCurrency(value: number): string {

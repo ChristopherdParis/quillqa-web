@@ -12,7 +12,7 @@ import { FeedbackService } from '../core/feedback.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section class="page page-narrow">
+  <section class="page page-narrow">
       <div class="page-header">
         <h1>Ajustes</h1>
         <p>Configura tu negocio</p>
@@ -31,12 +31,17 @@ import { FeedbackService } from '../core/feedback.service';
                 <label class="field">
                   <span>Moneda</span>
                   <select [(ngModel)]="settings.currency">
-                    <option value="EUR">EUR (€)</option>
+                    <option value="EUR">EUR (EUR)</option>
                     <option value="USD">USD ($)</option>
                     <option value="MXN">MXN ($)</option>
                     <option value="COP">COP ($)</option>
                     <option value="ARS">ARS ($)</option>
                   </select>
+                </label>
+                <label class="field">
+                  <span>Tenant ID</span>
+                  <input [(ngModel)]="settings.tenantId" type="text" placeholder="UUID del tenant del backend (opcional)" />
+                  <small class="field-help">Usado para guardar productos e inventario</small>
                 </label>
                 <button class="btn btn-primary btn-block" type="button" (click)="save()" [disabled]="saving()">
                   {{ saving() ? 'Guardando...' : 'Guardar Cambios' }}
@@ -86,16 +91,16 @@ export class SettingsPageComponent implements OnInit {
     try {
       await new Promise((resolve) => setTimeout(resolve, 300));
       this.storage.saveBusinessSettings(this.settings);
-      this.feedback.success('Configuración guardada correctamente.');
+      this.feedback.success('Configuracion guardada correctamente.');
     } catch {
-      this.feedback.error('No se pudo guardar la configuración.');
+      this.feedback.error('No se pudo guardar la configuracion.');
     } finally {
       this.saving.set(false);
     }
   }
 
   async logout(): Promise<void> {
-    this.auth.logout();
+    this.auth.logoutApp();
     await this.router.navigate(['/login']);
   }
 }

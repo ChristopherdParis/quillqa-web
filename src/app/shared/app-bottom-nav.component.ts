@@ -3,7 +3,7 @@ import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 
 @Component({
-  selector: 'app-bottom-nav',
+  selector: 'app-app-bottom-nav',
   standalone: true,
   imports: [CommonModule, RouterLink, RouterLinkActive],
   template: `
@@ -17,7 +17,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
     </nav>
   `,
 })
-export class BottomNavComponent {
+export class AppBottomNavComponent {
   readonly navItems = [
     { path: '/app/dashboard', label: 'Inicio', icon: 'https://cdn.jsdelivr.net/npm/lucide-static@0.563.0/icons/house.svg' },
     { path: '/app/products', label: 'Productos', icon: 'https://cdn.jsdelivr.net/npm/lucide-static@0.563.0/icons/package.svg' },

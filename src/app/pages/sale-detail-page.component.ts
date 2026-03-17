@@ -3,8 +3,8 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Sale } from '../core/models';
-import { StorageService } from '../core/storage.service';
 import { FeedbackService } from '../core/feedback.service';
+import { InventoryApiService } from '../core/inventory-api.service';
 
 @Component({
   selector: 'app-sale-detail-page',
@@ -33,7 +33,7 @@ import { FeedbackService } from '../core/feedback.service';
           @if (sale.canceled) {
             <div class="card sale-alert-danger">
               <strong>Venta anulada</strong>
-              <p>Esta venta ha sido cancelada</p>
+              <p>Esta venta ha sido anulada</p>
               @if (sale.cancellationReason) {
                 <p>Motivo: {{ sale.cancellationReason }}</p>
               }
@@ -153,8 +153,8 @@ import { FeedbackService } from '../core/feedback.service';
 export class SaleDetailPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly location = inject(Location);
-  private readonly storage = inject(StorageService);
   private readonly feedback = inject(FeedbackService);
+  private readonly inventoryApi = inject(InventoryApiService);
 
   readonly loading = signal(true);
   readonly showCancelForm = signal(false);
@@ -166,36 +166,44 @@ export class SaleDetailPageComponent implements OnInit {
 
   ngOnInit(): void {
     const saleId = this.route.snapshot.paramMap.get('id');
-
-    setTimeout(() => {
-      if (saleId) {
-        this.sale = this.storage.getSaleById(saleId);
-        if (this.sale) {
-          this.longDate = new Intl.DateTimeFormat('es-ES', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          }).format(this.sale.timestamp);
-        }
-      }
-
+    if (!saleId) {
       this.loading.set(false);
-    }, 300);
+      return;
+    }
+
+    this.loadSale(saleId);
+  }
+
+  async loadSale(saleId: string): Promise<void> {
+    try {
+      this.sale = await this.inventoryApi.getSale(saleId);
+      if (this.sale) {
+        this.longDate = new Intl.DateTimeFormat('es-ES', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        }).format(this.sale.timestamp);
+      }
+    } catch {
+      this.sale = null;
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   canCancelSale(): boolean {
     return this.selectedReason !== 'Otro' || !!this.customReason.trim();
   }
 
-  cancelSale(): void {
+  async cancelSale(): Promise<void> {
     if (!this.sale) {
-      this.feedback.error('No se encontró la venta para anular.');
+      this.feedback.error('No se encontrÃ³ la venta para anular.');
       return;
     }
 
     if (!this.canCancelSale()) {
-      this.feedback.error('Completa el motivo de anulación.');
+      this.feedback.error('Completa el motivo de anulaciÃ³n.');
       return;
     }
 
@@ -206,9 +214,7 @@ export class SaleDetailPageComponent implements OnInit {
 
     const reason = this.selectedReason === 'Otro' ? this.customReason.trim() : this.selectedReason;
     try {
-      this.storage.restoreStockForSale(this.sale);
-      this.sale = { ...this.sale, canceled: true, cancellationReason: reason };
-      this.storage.saveSale(this.sale);
+      this.sale = await this.inventoryApi.cancelSale(this.sale.id, reason);
       this.showCancelForm.set(false);
       this.feedback.success('Venta anulada y stock restaurado.');
     } catch {
@@ -241,3 +247,5 @@ export class SaleDetailPageComponent implements OnInit {
     }
   }
 }
+
+

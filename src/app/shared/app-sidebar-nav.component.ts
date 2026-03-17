@@ -5,7 +5,7 @@ import { AuthService } from '../core/auth.service';
 import { StorageService } from '../core/storage.service';
 
 @Component({
-  selector: 'app-sidebar-nav',
+  selector: 'app-app-sidebar-nav',
   standalone: true,
   imports: [CommonModule, RouterLink, RouterLinkActive],
   template: `
@@ -31,7 +31,7 @@ import { StorageService } from '../core/storage.service';
     </aside>
   `,
 })
-export class SidebarNavComponent {
+export class AppSidebarNavComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly storage = inject(StorageService);

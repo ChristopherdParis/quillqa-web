@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Sale } from '../core/models';
-import { StorageService } from '../core/storage.service';
+import { InventoryApiService } from '../core/inventory-api.service';
 
 @Component({
   selector: 'app-sales-page',
@@ -15,7 +15,7 @@ import { StorageService } from '../core/storage.service';
           <h1>Ventas</h1>
           <p>Historial de transacciones</p>
         </div>
-        <a class="btn btn-primary" routerLink="/sales/new">Nueva Venta</a>
+        <a class="btn btn-primary" routerLink="/app/sales/new">Nueva Venta</a>
       </div>
 
       @if (loading()) {
@@ -29,7 +29,7 @@ import { StorageService } from '../core/storage.service';
               <h2 class="group-title">{{ group.dateKey }}</h2>
               <div class="stack-sm">
                 @for (sale of group.sales; track sale.id) {
-                  <a class="card list-card" [routerLink]="['/sales', sale.id]">
+                  <a class="card list-card" [routerLink]="['/app/sales', sale.id]">
                     <div>
                       <h3>
                         {{ sale.items.length }} articulos
@@ -84,7 +84,7 @@ import { StorageService } from '../core/storage.service';
                     <td>{{ sale.total.toFixed(2) }} EUR</td>
                     <td class="text-primary">+{{ sale.estimatedProfit.toFixed(2) }} EUR</td>
                     <td class="text-right">
-                      <a class="btn btn-ghost" [routerLink]="['/sales', sale.id]">Ver</a>
+                      <a class="btn btn-ghost" [routerLink]="['/app/sales', sale.id]">Ver</a>
                     </td>
                   </tr>
                 }
@@ -100,13 +100,16 @@ export class SalesPageComponent implements OnInit {
   readonly loading = signal(true);
   sales: Sale[] = [];
 
-  constructor(private readonly storage: StorageService) {}
+  constructor(private readonly inventoryApi: InventoryApiService) {}
 
-  ngOnInit(): void {
-    setTimeout(() => {
-      this.sales = this.storage.getSales();
+  async ngOnInit(): Promise<void> {
+    try {
+      this.sales = await this.inventoryApi.listSales();
+    } catch {
+      this.sales = [];
+    } finally {
       this.loading.set(false);
-    }, 300);
+    }
   }
 
   get groupedSales(): Array<{ dateKey: string; sales: Sale[] }> {

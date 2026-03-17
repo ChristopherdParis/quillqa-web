@@ -2,18 +2,25 @@ import { CommonModule, Location } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Product } from '../core/models';
-import { StorageService } from '../core/storage.service';
 import { FeedbackService } from '../core/feedback.service';
+import { InventoryApiService } from '../core/inventory-api.service';
+import { Product } from '../core/models';
 
 type ProductFormState = {
   name: string;
   code: string;
-  category: string;
+  unit: string;
+  categoryId: string;
+  description: string;
   costPrice: number;
   salePrice: number;
   stock: number;
   minStock: number;
+};
+
+type EditableCategory = {
+  id: string;
+  name: string;
 };
 
 @Component({
@@ -46,19 +53,29 @@ type ProductFormState = {
 
               <div class="form-grid">
                 <label class="field">
-                  <span>Codigo</span>
-                  <input [(ngModel)]="form.code" name="code" type="text" placeholder="PROD-001" />
+                  <span>SKU / Codigo *</span>
+                  <input [(ngModel)]="form.code" name="code" type="text" required placeholder="PROD-001" />
                 </label>
                 <label class="field">
-                  <span>Categoria</span>
-                  <select [(ngModel)]="form.category" name="category">
-                    <option value="">Selecciona</option>
-                    @for (category of categories; track category) {
-                      <option [value]="category">{{ category }}</option>
-                    }
-                  </select>
+                  <span>Unidad *</span>
+                  <input [(ngModel)]="form.unit" name="unit" type="text" required placeholder="unidad, caja, kg..." />
                 </label>
               </div>
+
+              <label class="field">
+                <span>Categoria</span>
+                <select [(ngModel)]="form.categoryId" name="categoryId">
+                  <option value="">Sin categoria</option>
+                  @for (category of categories; track category.id) {
+                    <option [value]="category.id">{{ category.name }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Descripcion</span>
+                <textarea [(ngModel)]="form.description" name="description" rows="2" placeholder="Opcional"></textarea>
+              </label>
 
               <div class="form-grid">
                 <label class="field">
@@ -73,11 +90,11 @@ type ProductFormState = {
 
               <div class="form-grid">
                 <label class="field">
-                  <span>Stock Actual</span>
+                  <span>Stock inicial (referencial)</span>
                   <input [(ngModel)]="form.stock" name="stock" type="number" min="0" placeholder="0" />
                 </label>
                 <label class="field">
-                  <span>Stock Minimo</span>
+                  <span>Stock minimo</span>
                   <input [(ngModel)]="form.minStock" name="minStock" type="number" min="0" placeholder="5" />
                 </label>
               </div>
@@ -99,10 +116,12 @@ type ProductFormState = {
             <button class="btn btn-primary btn-block" type="submit" [disabled]="saving()">
               {{ saving() ? 'Guardando...' : isEditMode ? 'Actualizar Producto' : 'Crear Producto' }}
             </button>
-            <button class="btn btn-outline btn-block" type="button" (click)="goBack()">Cancelar</button>
-            @if (isEditMode && product) {
-              <button class="btn btn-danger btn-block" type="button" (click)="remove()">Eliminar Producto</button>
+            @if (isEditMode) {
+              <button class="btn btn-outline btn-block" type="button" (click)="deleteProduct()" [disabled]="saving()">
+                Eliminar Producto
+              </button>
             }
+            <button class="btn btn-outline btn-block" type="button" (click)="goBack()">Cancelar</button>
           </div>
         </form>
       }
@@ -113,42 +132,51 @@ export class ProductEditorPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly location = inject(Location);
-  private readonly storage = inject(StorageService);
+  private readonly feedback = inject(FeedbackService);
+  private readonly inventoryApi = inject(InventoryApiService);
 
   readonly loading = signal(true);
   readonly saving = signal(false);
   readonly formErrors = signal<string[]>([]);
 
-  readonly categories = ['Tornillos', 'Herramientas', 'Accesorios', 'Iluminacion', 'Bebidas', 'Alimentos', 'Electronica', 'Otros'];
-
+  categories: EditableCategory[] = [];
   product: Product | null = null;
   isEditMode = false;
   pageTitle = 'Nuevo Producto';
+
   form: ProductFormState = this.createEmptyForm();
 
-  ngOnInit(): void {
-    const productId = this.route.snapshot.paramMap.get('id');
-    this.isEditMode = !!productId;
-    this.pageTitle = this.isEditMode ? 'Editar Producto' : 'Nuevo Producto';
+  async ngOnInit(): Promise<void> {
+    try {
+      const categories = await this.inventoryApi.listCategories();
+      this.categories = categories.map((category) => ({ id: category.id, name: category.name }));
 
-    setTimeout(() => {
+      const productId = this.route.snapshot.paramMap.get('id');
+      this.isEditMode = !!productId;
+      this.pageTitle = this.isEditMode ? 'Editar Producto' : 'Nuevo Producto';
+
       if (productId) {
-        this.product = this.storage.getProductById(productId);
-        if (this.product) {
+        const product = await this.inventoryApi.getProductForUi(productId);
+        if (product) {
+          this.product = product;
           this.form = {
-            name: this.product.name,
-            code: this.product.code,
-            category: this.product.category,
-            costPrice: this.product.costPrice,
-            salePrice: this.product.salePrice,
-            stock: this.product.stock,
-            minStock: this.product.minStock,
+            name: product.name,
+            code: product.code,
+            unit: product.unit ?? 'unidad',
+            categoryId: product.categoryId ?? '',
+            description: product.description ?? '',
+            costPrice: product.costPrice ?? 0,
+            salePrice: product.salePrice ?? 0,
+            stock: product.stock,
+            minStock: product.minStock,
           };
         }
       }
-
+    } catch {
+      this.feedback.error('No se pudo cargar la informacion del editor desde backend.');
+    } finally {
       this.loading.set(false);
-    }, 300);
+    }
   }
 
   async save(): Promise<void> {
@@ -160,44 +188,86 @@ export class ProductEditorPageComponent implements OnInit {
     }
 
     this.formErrors.set([]);
-
     this.saving.set(true);
 
     try {
-      const normalizedCostPrice = this.normalizePrice(this.form.costPrice);
-      const normalizedSalePrice = this.normalizePrice(this.form.salePrice);
-      const normalizedStock = this.normalizeQuantity(this.form.stock);
-      const normalizedMinStock = this.normalizeQuantity(this.form.minStock);
-      const now = new Date();
-      const product: Product = {
-        id: this.product?.id ?? String(Date.now()),
-        name: this.form.name.trim(),
-        code: this.form.code.trim(),
-        category: this.form.category,
-        costPrice: normalizedCostPrice,
-        salePrice: normalizedSalePrice,
-        stock: normalizedStock,
-        minStock: normalizedMinStock,
-        createdAt: this.product?.createdAt ?? now,
-        updatedAt: now,
-      };
-
-      this.storage.saveProduct(product);
-      this.feedback.success(this.isEditMode ? 'Producto actualizado correctamente.' : 'Producto creado correctamente.');
-      await this.router.navigate(['/products']);
-    } catch {
-      this.feedback.error('No se pudo guardar el producto. Revisa los datos e intenta de nuevo.');
+      if (this.isEditMode) {
+        await this.handleUpdate();
+      } else {
+        await this.handleCreate();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo guardar el producto. Revisa los datos e intenta de nuevo.';
+      this.feedback.error(message);
     } finally {
       this.saving.set(false);
     }
   }
 
-  private readonly feedback = inject(FeedbackService);
+  async deleteProduct(): Promise<void> {
+    if (!this.product) {
+      return;
+    }
+
+    const shouldDelete = window.confirm(`Eliminar ${this.product.name}? Esta accion no se puede deshacer.`);
+    if (!shouldDelete) {
+      return;
+    }
+
+    this.saving.set(true);
+    try {
+      await this.inventoryApi.deleteProduct(this.product.id);
+      this.feedback.success('Producto eliminado correctamente.');
+      await this.router.navigate(['/app/products']);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo eliminar el producto.';
+      this.feedback.error(message);
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  private async handleCreate(): Promise<void> {
+    await this.inventoryApi.createProduct({
+      sku: this.form.code.trim(),
+      name: this.form.name.trim(),
+      unit: this.form.unit.trim() || 'unidad',
+      unitCost: this.normalizePrice(this.form.costPrice),
+      unitSale: this.normalizePrice(this.form.salePrice),
+      categoryId: this.form.categoryId || null,
+      description: this.form.description.trim() || undefined,
+      reorderPoint: this.normalizeQuantity(this.form.minStock),
+      active: true,
+    });
+    this.feedback.success('Producto creado correctamente.');
+    await this.router.navigate(['/app/products']);
+  }
+
+  private async handleUpdate(): Promise<void> {
+    if (!this.product) {
+      throw new Error('No se encontro el producto para editar.');
+    }
+
+    const description = this.form.description.trim();
+    await this.inventoryApi.updateProduct(this.product.id, {
+      sku: this.form.code.trim(),
+      name: this.form.name.trim(),
+      unit: this.form.unit.trim() || 'unidad',
+      unitCost: this.normalizePrice(this.form.costPrice),
+      unitSale: this.normalizePrice(this.form.salePrice),
+      categoryId: this.form.categoryId || null,
+      description: description ? description : null,
+      reorderPoint: this.normalizeQuantity(this.form.minStock),
+    });
+    this.feedback.success('Producto actualizado correctamente.');
+    await this.router.navigate(['/app/products']);
+  }
 
   private validateForm(): string[] {
     const errors: string[] = [];
     const normalizedName = this.form.name.trim();
-    const normalizedCode = this.form.code.trim().toLowerCase();
+    const normalizedCode = this.form.code.trim();
+    const normalizedUnit = this.form.unit.trim();
     const price = this.normalizePrice(this.form.costPrice);
     const salePrice = this.normalizePrice(this.form.salePrice);
     const stock = this.normalizeQuantity(this.form.stock);
@@ -207,42 +277,28 @@ export class ProductEditorPageComponent implements OnInit {
       errors.push('El nombre del producto es obligatorio.');
     }
 
-    if (!this.form.code.trim()) {
-      errors.push('El código es recomendado para identificar inventario.');
+    if (!normalizedCode) {
+      errors.push('El codigo/SKU es obligatorio.');
+    }
+
+    if (!normalizedUnit) {
+      errors.push('La unidad del producto es obligatoria.');
     }
 
     if (price < 0) {
       errors.push('El precio de compra no puede ser negativo.');
     }
 
-    if (salePrice <= 0) {
-      errors.push('El precio de venta debe ser mayor a 0.');
-    }
-
-    if (salePrice < price) {
-      errors.push('El precio de venta debe ser mayor o igual al precio de compra.');
+    if (salePrice < 0) {
+      errors.push('El precio de venta no puede ser negativo.');
     }
 
     if (stock < 0) {
-      errors.push('El stock actual no puede ser negativo.');
+      errors.push('El stock inicial no puede ser negativo.');
     }
 
     if (minStock < 0) {
-      errors.push('El stock mínimo no puede ser negativo.');
-    }
-
-    if (this.product) {
-      const products = this.storage.getProducts().filter((item) => item.id !== this.product?.id);
-      const hasDuplicateCode = products.some((item) => item.code.trim().toLowerCase() === normalizedCode && !!normalizedCode);
-      if (hasDuplicateCode) {
-        errors.push('Ya existe otro producto con ese código.');
-      }
-    } else {
-      const products = this.storage.getProducts();
-      const hasDuplicateCode = products.some((item) => item.code.trim().toLowerCase() === normalizedCode && !!normalizedCode);
-      if (hasDuplicateCode) {
-        errors.push('Ya existe un producto con ese código.');
-      }
+      errors.push('El stock minimo no puede ser negativo.');
     }
 
     return errors;
@@ -258,25 +314,6 @@ export class ProductEditorPageComponent implements OnInit {
     return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : -1;
   }
 
-  async remove(): Promise<void> {
-    if (!this.product) {
-      return;
-    }
-
-    const shouldDelete = window.confirm(`Eliminar "${this.product.name}"? Esta accion no se puede deshacer.`);
-    if (!shouldDelete) {
-      return;
-    }
-
-    try {
-      this.storage.deleteProduct(this.product.id);
-      this.feedback.success('Producto eliminado correctamente.');
-      await this.router.navigate(['/products']);
-    } finally {
-      this.saving.set(false);
-    }
-  }
-
   goBack(): void {
     this.location.back();
   }
@@ -285,7 +322,9 @@ export class ProductEditorPageComponent implements OnInit {
     return {
       name: '',
       code: '',
-      category: '',
+      unit: 'unidad',
+      categoryId: '',
+      description: '',
       costPrice: 0,
       salePrice: 0,
       stock: 0,

@@ -12,8 +12,8 @@ import { AuthService } from '../core/auth.service';
     <section class="auth-page">
       <div class="auth-card">
         <div class="auth-header">
-          <h1>Acceso a Mi Tienda</h1>
-          <p>Ingresa para gestionar inventario y ventas</p>
+          <h1>Acceso del Negocio</h1>
+          <p>Ingresa al sistema operativo de inventario de tu negocio</p>
         </div>
 
         <form class="form-stack" (ngSubmit)="submit()">
@@ -34,13 +34,13 @@ import { AuthService } from '../core/auth.service';
           </label>
 
           <label class="field">
-            <span>Contrase\u00f1a</span>
+            <span>Contrasena</span>
             <input
               [(ngModel)]="password"
               name="password"
               type="password"
               autocomplete="current-password"
-              placeholder="Ingresa tu contrase\u00f1a"
+              placeholder="Ingresa tu contrasena"
               [disabled]="loading()"
             />
           </label>
@@ -52,7 +52,7 @@ import { AuthService } from '../core/auth.service';
           <div class="auth-footer">
             <p>Credenciales de prueba para acceso inicial</p>
             <p><strong>Usuario:</strong> {{ defaultCredentials.user }}</p>
-            <p><strong>Contrase\u00f1a:</strong> {{ defaultCredentials.password }}</p>
+            <p><strong>Contrasena:</strong> {{ defaultCredentials.password }}</p>
           </div>
         </form>
       </div>
@@ -65,7 +65,7 @@ export class LoginPageComponent {
 
   user = '';
   password = '';
-  readonly defaultCredentials = this.auth.getDefaultCredentials();
+  readonly defaultCredentials = this.auth.getDefaultAppCredentials();
   readonly error = signal('');
   readonly loading = signal(false);
   readonly minPasswordLength = 6;
@@ -77,17 +77,17 @@ export class LoginPageComponent {
     const normalizedPassword = this.password.trim();
 
     if (!normalizedUser || !normalizedPassword || normalizedPassword.length < this.minPasswordLength) {
-      this.error.set('Completa usuario y contrase\u00f1a');
+      this.error.set('Completa usuario y contrasena');
       return;
     }
 
     this.loading.set(true);
 
     try {
-      await this.auth.login(normalizedUser, normalizedPassword);
-      await this.router.navigate(['/dashboard']);
+      await this.auth.loginApp(normalizedUser, normalizedPassword);
+      await this.router.navigate(['/app/dashboard']);
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Usuario o contrase\u00f1a incorrectos');
+      this.error.set(error instanceof Error ? error.message : 'Usuario o contrasena incorrectos');
     } finally {
       this.loading.set(false);
     }

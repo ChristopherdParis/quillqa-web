@@ -6,8 +6,12 @@ const STORAGE_KEYS = {
   products: 'store_products',
   sales: 'store_sales',
   settings: 'store_settings',
-  authToken: 'store_auth_token',
-  authSession: 'store_auth_session',
+  appAuthToken: 'store_app_auth_token',
+  appAuthSession: 'store_app_auth_session',
+  appAuthRole: 'store_app_auth_role',
+  adminAuthToken: 'store_admin_auth_token',
+  adminAuthSession: 'store_admin_auth_session',
+  adminAuthRole: 'store_admin_auth_role',
 };
 
 @Injectable({ providedIn: 'root' })
@@ -51,9 +55,30 @@ export class StorageService {
     localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products));
   }
 
+  saveProducts(products: Product[]): void {
+    localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products));
+  }
+
   deleteProduct(productId: string): void {
     const products = this.getProducts().filter((product) => product.id !== productId);
     localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products));
+  }
+
+  getActiveTenantId(): string | null {
+    return this.getBusinessSettings().tenantId?.trim() || null;
+  }
+
+  saveActiveTenantId(tenantId: string): void {
+    const settings = this.getBusinessSettings();
+    const sanitizedTenantId = tenantId.trim();
+    if (!sanitizedTenantId) {
+      return;
+    }
+
+    this.saveBusinessSettings({
+      ...settings,
+      tenantId: sanitizedTenantId,
+    });
   }
 
   getSales(): Sale[] {
@@ -135,39 +160,119 @@ export class StorageService {
     localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(settings));
   }
 
-  getAuthToken(): string | null {
-    const rawSession = localStorage.getItem(STORAGE_KEYS.authSession);
+  getAppAuthToken(): string | null {
+    const rawSession = localStorage.getItem(STORAGE_KEYS.appAuthSession);
     if (!rawSession) {
-      return localStorage.getItem(STORAGE_KEYS.authToken);
+      return localStorage.getItem(STORAGE_KEYS.appAuthToken);
     }
 
     try {
       const parsed = JSON.parse(rawSession) as { token: string; expiresAt: number };
       if (!parsed.token || !parsed.expiresAt) {
-        this.clearAuthToken();
+        this.clearAppAuthToken();
         return null;
       }
 
       if (Date.now() > parsed.expiresAt) {
-        this.clearAuthToken();
+        this.clearAppAuthToken();
         return null;
       }
 
       return parsed.token;
     } catch {
-      this.clearAuthToken();
+      this.clearAppAuthToken();
       return null;
     }
   }
 
-  setAuthToken(token: string, expiresInHours = 8): void {
-    const expiresAt = Date.now() + expiresInHours * 60 * 60 * 1000;
-    localStorage.setItem(STORAGE_KEYS.authSession, JSON.stringify({ token, expiresAt }));
-    localStorage.setItem(STORAGE_KEYS.authToken, token);
+  getAppAuthRole(): string | null {
+    const rawSession = localStorage.getItem(STORAGE_KEYS.appAuthSession);
+    if (!rawSession) {
+      return localStorage.getItem(STORAGE_KEYS.appAuthRole);
+    }
+
+    try {
+      const parsed = JSON.parse(rawSession) as { role?: string; expiresAt: number };
+      if (!parsed.expiresAt || Date.now() > parsed.expiresAt) {
+        this.clearAppAuthToken();
+        return null;
+      }
+
+      return parsed.role ?? localStorage.getItem(STORAGE_KEYS.appAuthRole);
+    } catch {
+      this.clearAppAuthToken();
+      return null;
+    }
   }
 
-  clearAuthToken(): void {
-    localStorage.removeItem(STORAGE_KEYS.authToken);
-    localStorage.removeItem(STORAGE_KEYS.authSession);
+  setAppAuthToken(token: string, expiresInHours = 8, role = 'user'): void {
+    const expiresAt = Date.now() + expiresInHours * 60 * 60 * 1000;
+    localStorage.setItem(STORAGE_KEYS.appAuthSession, JSON.stringify({ token, expiresAt, role }));
+    localStorage.setItem(STORAGE_KEYS.appAuthToken, token);
+    localStorage.setItem(STORAGE_KEYS.appAuthRole, role);
+  }
+
+  clearAppAuthToken(): void {
+    localStorage.removeItem(STORAGE_KEYS.appAuthToken);
+    localStorage.removeItem(STORAGE_KEYS.appAuthSession);
+    localStorage.removeItem(STORAGE_KEYS.appAuthRole);
+  }
+
+  getAdminAuthToken(): string | null {
+    const rawSession = localStorage.getItem(STORAGE_KEYS.adminAuthSession);
+    if (!rawSession) {
+      return localStorage.getItem(STORAGE_KEYS.adminAuthToken);
+    }
+
+    try {
+      const parsed = JSON.parse(rawSession) as { token: string; expiresAt: number };
+      if (!parsed.token || !parsed.expiresAt) {
+        this.clearAdminAuthToken();
+        return null;
+      }
+
+      if (Date.now() > parsed.expiresAt) {
+        this.clearAdminAuthToken();
+        return null;
+      }
+
+      return parsed.token;
+    } catch {
+      this.clearAdminAuthToken();
+      return null;
+    }
+  }
+
+  getAdminAuthRole(): string | null {
+    const rawSession = localStorage.getItem(STORAGE_KEYS.adminAuthSession);
+    if (!rawSession) {
+      return localStorage.getItem(STORAGE_KEYS.adminAuthRole);
+    }
+
+    try {
+      const parsed = JSON.parse(rawSession) as { role?: string; expiresAt: number };
+      if (!parsed.expiresAt || Date.now() > parsed.expiresAt) {
+        this.clearAdminAuthToken();
+        return null;
+      }
+
+      return parsed.role ?? localStorage.getItem(STORAGE_KEYS.adminAuthRole);
+    } catch {
+      this.clearAdminAuthToken();
+      return null;
+    }
+  }
+
+  setAdminAuthToken(token: string, expiresInHours = 8, role = 'admin'): void {
+    const expiresAt = Date.now() + expiresInHours * 60 * 60 * 1000;
+    localStorage.setItem(STORAGE_KEYS.adminAuthSession, JSON.stringify({ token, expiresAt, role }));
+    localStorage.setItem(STORAGE_KEYS.adminAuthToken, token);
+    localStorage.setItem(STORAGE_KEYS.adminAuthRole, role);
+  }
+
+  clearAdminAuthToken(): void {
+    localStorage.removeItem(STORAGE_KEYS.adminAuthToken);
+    localStorage.removeItem(STORAGE_KEYS.adminAuthSession);
+    localStorage.removeItem(STORAGE_KEYS.adminAuthRole);
   }
 }

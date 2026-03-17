@@ -2,6 +2,8 @@ export interface Product {
   id: string;
   name: string;
   code: string;
+  sku?: string;
+  unit?: string;
   category: string;
   costPrice: number;
   salePrice: number;
@@ -9,6 +11,10 @@ export interface Product {
   minStock: number;
   createdAt: Date;
   updatedAt: Date;
+  categoryId?: string | null;
+  description?: string | null;
+  reorderPoint?: number;
+  active?: boolean;
 }
 
 export interface SaleItem {
@@ -25,6 +31,7 @@ export interface Sale {
   total: number;
   estimatedProfit: number;
   timestamp: Date;
+  status?: string;
   canceled: boolean;
   paymentMethod?: string;
   amountPaid?: number;
@@ -38,4 +45,27 @@ export interface BusinessSettings {
   phone?: string;
   currency: string;
   userId: string;
+  tenantId?: string;
+}
+
+export interface TenantSummary {
+  id: string;
+  name: string;
+  slug: string;
+  ownerEmail: string;
+  plan: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TenantUser {
+  id: string;
+  tenantId: string;
+  fullName: string;
+  email: string;
+  role: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }

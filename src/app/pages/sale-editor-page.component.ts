@@ -3,8 +3,8 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Product, Sale, SaleItem } from '../core/models';
-import { StorageService } from '../core/storage.service';
 import { FeedbackService } from '../core/feedback.service';
+import { InventoryApiService } from '../core/inventory-api.service';
 
 type SaleStep = 'cart' | 'confirm';
 
@@ -137,6 +137,19 @@ type SaleStep = 'cart' | 'confirm';
           <aside class="confirm-sidebar stack-md">
             <article class="card">
               <div class="form-stack">
+                @if (warehouses.length) {
+                  <label class="field">
+                    <span>Bodega</span>
+                    <select [(ngModel)]="selectedWarehouseId" name="warehouseId">
+                      @for (warehouse of warehouses; track warehouse.id) {
+                        <option [value]="warehouse.id">
+                          {{ warehouse.name }}{{ warehouse.isDefault ? ' (predeterminada)' : '' }}
+                        </option>
+                      }
+                    </select>
+                  </label>
+                }
+
                 <label class="field">
                   <span>Metodo de pago</span>
                   <select [(ngModel)]="paymentMethod" name="paymentMethod">
@@ -225,8 +238,8 @@ type SaleStep = 'cart' | 'confirm';
 export class SaleEditorPageComponent implements OnInit {
   private readonly location = inject(Location);
   private readonly router = inject(Router);
-  private readonly storage = inject(StorageService);
   private readonly feedback = inject(FeedbackService);
+  private readonly inventoryApi = inject(InventoryApiService);
 
   readonly loading = signal(true);
   readonly saving = signal(false);
@@ -235,6 +248,8 @@ export class SaleEditorPageComponent implements OnInit {
 
   products: Product[] = [];
   cartItems: SaleItem[] = [];
+  warehouses: { id: string; name: string; isDefault: boolean; isActive: boolean }[] = [];
+  selectedWarehouseId = '';
   searchTerm = '';
   comment = '';
   paymentMethod = 'cash';
@@ -247,11 +262,22 @@ export class SaleEditorPageComponent implements OnInit {
     { value: 'wallet', label: 'Billetera digital' },
   ];
 
-  ngOnInit(): void {
-    setTimeout(() => {
-      this.products = this.storage.getProducts();
+  async ngOnInit(): Promise<void> {
+    try {
+      const [products, warehouses] = await Promise.all([
+        this.inventoryApi.listProductCatalogForUi(),
+        this.inventoryApi.listWarehouses(),
+      ]);
+      this.products = products;
+      this.warehouses = warehouses;
+      this.selectedWarehouseId = warehouses.find((warehouse) => warehouse.isDefault && warehouse.isActive)?.id ?? warehouses[0]?.id ?? '';
+    } catch {
+      this.products = [];
+      this.warehouses = [];
+      this.feedback.error('No se pudo cargar el catalogo para ventas.');
+    } finally {
       this.loading.set(false);
-    }, 300);
+    }
   }
 
   get filteredProducts(): Product[] {
@@ -306,7 +332,7 @@ export class SaleEditorPageComponent implements OnInit {
     const requestedQuantity = Math.max(1, Math.min(quantity, maxAvailable));
 
     if (maxAvailable < 1) {
-      this.feedback.error('No hay stock suficiente para agregar más de este producto.');
+      this.feedback.error('No hay stock suficiente para agregar mas de este producto.');
       return;
     }
 
@@ -386,7 +412,7 @@ export class SaleEditorPageComponent implements OnInit {
     }
 
     if (!this.paymentMethod) {
-      errors.push('Selecciona un método de pago.');
+      errors.push('Selecciona un metodo de pago.');
     }
 
     const invalidQuantityItems = this.cartItems.filter((item) => {
@@ -445,35 +471,28 @@ export class SaleEditorPageComponent implements OnInit {
     this.saving.set(true);
 
     try {
+      const response = await this.inventoryApi.createSale({
+        warehouseId: this.selectedWarehouseId || undefined,
+        lines: this.cartItems.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+        })),
+      });
+
       const sale: Sale = {
-        id: this.storage.generateSaleId(),
+        ...response,
         items: this.cartItems,
+        paymentMethod: this.paymentMethod,
         total: this.total,
         estimatedProfit: this.estimatedProfit,
-        timestamp: new Date(),
-        canceled: false,
-        paymentMethod: this.paymentMethod,
         amountPaid: this.paymentMethod === 'cash' ? this.normalizedAmountPaid : undefined,
         changeDue: this.paymentMethod === 'cash' ? this.changeDue : undefined,
-        comment: this.comment.trim() || undefined,
       };
 
-      this.storage.saveSale(sale);
+      sale.comment = this.comment.trim() || undefined;
 
-      for (const cartItem of this.cartItems) {
-        const product = this.products.find((item) => item.id === cartItem.productId);
-        if (!product) {
-          continue;
-        }
-
-        this.storage.saveProduct({
-          ...product,
-          stock: product.stock - cartItem.quantity,
-          updatedAt: new Date(),
-        });
-      }
-
-      await this.router.navigate(['/sales', sale.id]);
+      await this.router.navigate(['/app/sales', sale.id]);
       this.feedback.success(`Venta ${sale.id} registrada correctamente.`);
     } catch {
       this.feedback.error('No se pudo registrar la venta. Intenta nuevamente.');

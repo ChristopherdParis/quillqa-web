@@ -23,12 +23,23 @@ type ProductTab = 'all' | 'low' | 'out';
       </div>
 
       @if (loading()) {
-        <p class="loading-copy">Cargando...</p>
+        <article class="card status-panel centered">
+          <div class="status-icon loading" aria-hidden="true">
+            <div class="loader-dots"><span></span><span></span><span></span></div>
+          </div>
+          <h2 class="status-panel-title">Cargando tu catalogo</h2>
+          <p class="status-panel-copy">Estamos trayendo productos, categorias y stock disponible.</p>
+        </article>
       } @else {
         @if (errorMessage()) {
-          <article class="card validation-summary">
-            <h3 class="validation-title">No se pudo cargar desde backend</h3>
-            <p>{{ errorMessage() }}</p>
+          <article class="card status-panel">
+            <div class="status-icon error" aria-hidden="true">!</div>
+            <h2 class="status-panel-title">No se pudo cargar el catalogo</h2>
+            <p class="status-panel-copy">{{ errorMessage() }}</p>
+            <div class="status-panel-actions">
+              <button class="btn btn-primary" type="button" (click)="reload()">Reintentar</button>
+              <a class="btn btn-outline" routerLink="/app/settings">Revisar configuracion</a>
+            </div>
           </article>
         }
 
@@ -42,7 +53,20 @@ type ProductTab = 'all' | 'low' | 'out';
           </div>
 
           @if (!visibleProducts.length) {
-            <div class="card empty-state">No hay productos para este filtro</div>
+            <article class="card status-panel centered">
+              <div class="status-icon empty" aria-hidden="true">{{ hasProducts ? '?' : '+' }}</div>
+              <h2 class="status-panel-title">{{ hasProducts ? 'No hay coincidencias para este filtro' : 'Tu catalogo esta vacio' }}</h2>
+              <p class="status-panel-copy">
+                {{ hasProducts ? 'Prueba con otra busqueda o cambia de pestaña para ver mas productos.' : 'Crea tu primer producto para comenzar a registrar inventario y ventas.' }}
+              </p>
+              <div class="status-panel-actions">
+                @if (hasProducts) {
+                  <button class="btn btn-outline" type="button" (click)="clearFilters()">Limpiar filtros</button>
+                } @else {
+                  <a class="btn btn-primary" routerLink="/app/products/new">Crear primer producto</a>
+                }
+              </div>
+            </article>
           } @else {
             <div class="mobile-only stack-sm">
               @for (product of visibleProducts; track product.id) {
@@ -99,15 +123,23 @@ type ProductTab = 'all' | 'low' | 'out';
 })
 export class ProductsPageComponent implements OnInit {
   readonly loading = signal(true);
+  readonly errorMessage = signal('');
   searchTerm = '';
   activeTab: ProductTab = 'all';
   products: Product[] = [];
 
-  readonly errorMessage = signal('');
-
   constructor(private readonly inventoryApi: InventoryApiService, private readonly feedback: FeedbackService) {}
 
   async ngOnInit(): Promise<void> {
+    await this.loadProducts();
+  }
+
+  async reload(): Promise<void> {
+    await this.loadProducts();
+  }
+
+  private async loadProducts(): Promise<void> {
+    this.loading.set(true);
     try {
       this.products = await this.inventoryApi.listProductCatalogForUi();
       this.errorMessage.set('');
@@ -135,6 +167,15 @@ export class ProductsPageComponent implements OnInit {
       const message = error instanceof Error ? error.message : 'No se pudo eliminar el producto.';
       this.feedback.error(message);
     }
+  }
+
+  get hasProducts(): boolean {
+    return this.products.length > 0;
+  }
+
+  clearFilters(): void {
+    this.searchTerm = '';
+    this.activeTab = 'all';
   }
 
   get visibleProducts(): Product[] {

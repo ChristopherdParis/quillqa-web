@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { Product, Sale } from '../core/models';
 import { InventoryApiService, MovementRecord } from '../core/inventory-api.service';
 
@@ -15,7 +16,7 @@ type WarehouseRecord = {
 @Component({
   selector: 'app-reports-page',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <section class="page">
       <div class="page-header">
@@ -47,7 +48,23 @@ type WarehouseRecord = {
       </label>
 
       @if (loading()) {
-        <p class="loading-copy">Cargando...</p>
+        <article class="card status-panel centered">
+          <div class="status-icon loading" aria-hidden="true">
+            <div class="loader-dots"><span></span><span></span><span></span></div>
+          </div>
+          <h2 class="status-panel-title">Armando el reporte diario</h2>
+          <p class="status-panel-copy">Estamos cruzando ventas, productos, bodegas y movimientos de stock.</p>
+        </article>
+      } @else if (errorMessage()) {
+        <article class="card status-panel centered">
+          <div class="status-icon error" aria-hidden="true">!</div>
+          <h2 class="status-panel-title">No se pudo generar el reporte</h2>
+          <p class="status-panel-copy">{{ errorMessage() }}</p>
+          <div class="status-panel-actions">
+            <button class="btn btn-primary" type="button" (click)="loadReport()">Reintentar</button>
+            <a class="btn btn-outline" routerLink="/app/settings">Revisar configuracion</a>
+          </div>
+        </article>
       } @else {
         <div class="stack-md">
           <p class="caption">{{ formattedDate }}</p>
@@ -101,7 +118,14 @@ type WarehouseRecord = {
           }
 
           @if (!filteredSales.length) {
-            <div class="card empty-state">No hay ventas registradas para esta fecha</div>
+            <article class="card status-panel centered">
+              <div class="status-icon empty" aria-hidden="true">%</div>
+              <h2 class="status-panel-title">No hay ventas para esta fecha</h2>
+              <p class="status-panel-copy">Prueba otra fecha o registra una venta nueva para empezar a ver indicadores y productos mas vendidos.</p>
+              <div class="status-panel-actions">
+                <a class="btn btn-primary" routerLink="/app/sales/new">Registrar venta</a>
+              </div>
+            </article>
           }
         </div>
       }
@@ -110,6 +134,7 @@ type WarehouseRecord = {
 })
 export class ReportsPageComponent implements OnInit {
   readonly loading = signal(true);
+  readonly errorMessage = signal('');
   selectedDate = new Date().toISOString().split('T')[0];
   sales: Sale[] = [];
   stockMovements: MovementRecord[] = [];
@@ -134,8 +159,9 @@ export class ReportsPageComponent implements OnInit {
       this.warehouses = [];
       this.movementIn = 0;
       this.movementOut = 0;
-      this.loading.set(false);
       this.productNamesById = new Map();
+      this.errorMessage.set('Selecciona una fecha valida para generar el reporte.');
+      this.loading.set(false);
       return;
     }
 
@@ -167,13 +193,15 @@ export class ReportsPageComponent implements OnInit {
         ['SALE_SHIPMENT', 'ADJUSTMENT_OUT', 'TRANSFER_OUT'].includes(movement.type),
       );
       this.productNamesById = new Map(products.map((product: Product) => [product.id, product.name]));
-    } catch {
+      this.errorMessage.set('');
+    } catch (error) {
       this.sales = [];
       this.stockMovements = [];
       this.warehouses = [];
       this.movementIn = 0;
       this.movementOut = 0;
       this.productNamesById = new Map();
+      this.errorMessage.set(error instanceof Error ? error.message : 'No se pudo cargar la informacion del reporte.');
     } finally {
       this.loading.set(false);
     }
@@ -227,7 +255,7 @@ export class ReportsPageComponent implements OnInit {
   get formattedDate(): string {
     const selectedDateTime = this.selectedDateTime;
     if (!selectedDateTime) {
-      return 'Sin fecha válida';
+      return 'Sin fecha valida';
     }
 
     return new Intl.DateTimeFormat('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(selectedDateTime);

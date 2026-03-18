@@ -21,7 +21,23 @@ import { InventoryApiService } from '../core/inventory-api.service';
       </div>
 
       @if (loading()) {
-        <p class="loading-copy">Cargando...</p>
+        <article class="card status-panel centered">
+          <div class="status-icon loading" aria-hidden="true">
+            <div class="loader-dots"><span></span><span></span><span></span></div>
+          </div>
+          <h2 class="status-panel-title">Preparando tu resumen del dia</h2>
+          <p class="status-panel-copy">Estamos consultando ventas, stock y movimientos recientes.</p>
+        </article>
+      } @else if (errorMessage()) {
+        <article class="card status-panel centered">
+          <div class="status-icon error" aria-hidden="true">!</div>
+          <h2 class="status-panel-title">No pudimos cargar el dashboard</h2>
+          <p class="status-panel-copy">{{ errorMessage() }}</p>
+          <div class="status-panel-actions">
+            <button class="btn btn-primary" type="button" (click)="reload()">Reintentar</button>
+            <a class="btn btn-outline" routerLink="/app/settings">Revisar configuracion</a>
+          </div>
+        </article>
       } @else {
         <div class="dashboard-grid">
           <div class="dashboard-main">
@@ -54,6 +70,18 @@ import { InventoryApiService } from '../core/inventory-api.service';
                 <a class="btn btn-outline btn-block" routerLink="/app/products/new">Nuevo Producto</a>
               </div>
             </div>
+
+            @if (!recentSales.length && !alerts.length) {
+              <article class="card status-panel">
+                <div class="status-icon empty" aria-hidden="true">+</div>
+                <h2 class="status-panel-title">Tu negocio todavia no tiene actividad hoy</h2>
+                <p class="status-panel-copy">Cuando registres ventas o movimientos de inventario, veras aqui el resumen del dia y las alertas de stock.</p>
+                <div class="status-panel-actions">
+                  <a class="btn btn-primary" routerLink="/app/sales/new">Registrar venta</a>
+                  <a class="btn btn-outline" routerLink="/app/products/new">Crear producto</a>
+                </div>
+              </article>
+            }
 
             @if (recentSales.length) {
               <div class="section-block">
@@ -110,6 +138,7 @@ export class DashboardPageComponent implements OnInit {
   private readonly inventoryApi = inject(InventoryApiService);
 
   readonly loading = signal(true);
+  readonly errorMessage = signal('');
   products: Product[] = [];
   alerts: Product[] = [];
   recentSales: Sale[] = [];
@@ -126,6 +155,15 @@ export class DashboardPageComponent implements OnInit {
   }).format(new Date());
 
   async ngOnInit(): Promise<void> {
+    await this.loadDashboard();
+  }
+
+  async reload(): Promise<void> {
+    await this.loadDashboard();
+  }
+
+  private async loadDashboard(): Promise<void> {
+    this.loading.set(true);
     try {
       const [products, summary] = await Promise.all([
         this.inventoryApi.listProductCatalogForUi(),
@@ -139,7 +177,8 @@ export class DashboardPageComponent implements OnInit {
       this.totalProfit = summary.totalProfit;
       this.totalStockIn = summary.stockIn;
       this.totalStockOut = summary.stockOut;
-    } catch {
+      this.errorMessage.set('');
+    } catch (error) {
       this.products = [];
       this.recentSales = [];
       this.alerts = [];
@@ -148,6 +187,7 @@ export class DashboardPageComponent implements OnInit {
       this.totalProfit = 0;
       this.totalStockIn = 0;
       this.totalStockOut = 0;
+      this.errorMessage.set(error instanceof Error ? error.message : 'Valida la conexion con el backend y el tenant activo.');
     } finally {
       this.loading.set(false);
     }
